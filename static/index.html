@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gravação</title>
+</head>
+<body>
+
+    <h2>Controle de Gravação</h2>
+
+    <label for="deviceSelect">Dispositivo de Áudio:</label>
+    <select id="deviceSelect">
+        <option value="" disabled selected>Carregando dispositivos...</option>
+    </select>
+
+    <br><br>
+
+    <button id="btnRecord">Iniciar Gravação</button>
+    <a href="/result">Resultado</a>
+
+    <p id="statusMsg" style="color: gray;"></p>
+
+    <script>
+        // Elementos do DOM
+        const select = document.getElementById('deviceSelect');
+        const btnRecord = document.getElementById('btnRecord');
+        const statusMsg = document.getElementById('statusMsg');
+
+        // 1. Função para carregar os dispositivos ao iniciar
+        async function loadDevices() {
+            try {
+                const response = await fetch('/devices');
+                
+                if (!response.ok) throw new Error('Falha ao buscar dispositivos');
+
+                const data = await response.json();
+
+                // Limpa o select
+                select.innerHTML = ''; 
+
+                // Itera sobre a lista recebida no JSON
+                data.devices.forEach(device => {
+                    const option = document.createElement('option');
+                    
+                    // O valor enviado será o 'name' (ex: hw:CARD=CODEC,DEV=0)
+                    option.value = device.name; 
+                    
+                    // O texto visível combina descrição e nome para clareza
+                    option.textContent = `${device.description} (${device.name})`; 
+                    
+                    select.appendChild(option);
+                });
+
+            } catch (error) {
+                console.error(error);
+                statusMsg.textContent = 'Erro ao carregar lista de dispositivos.';
+                statusMsg.style.color = 'red';
+            }
+        }
+
+        // 2. Função para enviar a requisição de gravação
+        btnRecord.addEventListener('click', async () => {
+            const selectedDevice = select.value;
+
+            if (!selectedDevice) {
+                alert('Por favor, selecione um dispositivo.');
+                return;
+            }
+
+            statusMsg.textContent = 'Enviando comando...';
+            statusMsg.style.color = 'blue';
+
+            try {
+                // Assume que /record aceita POST com JSON
+                const response = await fetch('/record', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        device: selectedDevice 
+                    })
+                });
+
+                if (response.ok) {
+                    statusMsg.textContent = `Gravação iniciada no dispositivo: ${selectedDevice}`;
+                    statusMsg.style.color = 'green';
+                } else {
+                    statusMsg.textContent = 'Erro ao iniciar gravação (Status ' + response.status + ')';
+                    statusMsg.style.color = 'red';
+                }
+
+            } catch (error) {
+                console.error(error);
+                statusMsg.textContent = 'Erro de conexão ao tentar gravar.';
+                statusMsg.style.color = 'red';
+            }
+        });
+
+        // Inicia o carregamento assim que a página abre
+        loadDevices();
+    </script>
+
+</body>
+</html>
