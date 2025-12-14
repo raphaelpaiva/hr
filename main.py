@@ -1,6 +1,6 @@
 from typing import List
 from time import sleep
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from subprocess import TimeoutExpired, run, Popen, PIPE
 
 from fastapi.responses import FileResponse, HTMLResponse
@@ -13,6 +13,7 @@ CMD_LIST_DEVICES = ['arecord', '-L']
 CALLS: List[str] = []
 
 app = FastAPI()
+v1_router = APIRouter(prefix="/api/v1", tags=["v1"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
@@ -23,7 +24,7 @@ async def root():
   
   return HTMLResponse(content=index_html, status_code=200)
 
-@app.get("/devices")
+@v1_router.get("/devices")
 async def devices():
   CALLS.append('/devices')
   devices: List[SoundDevice] = []
@@ -33,7 +34,7 @@ async def devices():
 
   return {"devices": devices}
 
-@app.post("/record")
+@v1_router.post("/record")
 async def record(payload: dict):
   device = payload['device']
 
@@ -54,11 +55,13 @@ async def record(payload: dict):
     "rc": process.returncode
   }
 
-@app.get("/result", response_class=FileResponse)
+@v1_router.get("/result", response_class=FileResponse)
 async def result():
   CALLS.append('/result')
   return "bg.wav"
 
-@app.get("/calls")
+@v1_router.get("/calls")
 def calls():
   return {"calls": CALLS}
+
+app.include_router(v1_router)

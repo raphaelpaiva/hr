@@ -17,20 +17,18 @@
     <br><br>
 
     <button id="btnRecord">Iniciar Gravação</button>
-    <a href="/result">Resultado</a>
+    <a href="/api/v1/result">Resultado</a>
 
     <p id="statusMsg" style="color: gray;"></p>
 
     <script>
-        // Elementos do DOM
         const select = document.getElementById('deviceSelect');
         const btnRecord = document.getElementById('btnRecord');
         const statusMsg = document.getElementById('statusMsg');
 
-        // 1. Função para carregar os dispositivos ao iniciar
         async function loadDevices() {
             try {
-                const response = await fetch('/devices');
+                const response = await fetch('/api/v1/devices');
                 
                 if (!response.ok) throw new Error('Falha ao buscar dispositivos');
 
@@ -72,8 +70,7 @@
             statusMsg.style.color = 'blue';
 
             try {
-                // Assume que /record aceita POST com JSON
-                const response = await fetch('/record', {
+                const response = await fetch('/api/v1/record', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -98,7 +95,6 @@
             }
         });
 
-        // Inicia o carregamento assim que a página abre
         loadDevices();
     </script>
 
