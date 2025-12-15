@@ -3,99 +3,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gravação</title>
+    <title>Sistema de Gravação v2.1</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #f0f0f0; }
+        .section { margin-bottom: 30px; border-bottom: 1px solid #ddd; padding-bottom: 20px; }
+        button { cursor: pointer; padding: 5px 10px; }
+        .error { color: red; }
+        .success { color: green; }
+        
+        /* Novas Cores para os Estados */
+        .state-recording { font-weight: bold; color: #1e7e34; /* Verde escuro */ }
+        .state-new { font-weight: bold; color: #ffc107; /* Amarelo/Laranja (Alerta) */ }
+        .state-stopped { color: #dc3545; /* Vermelho (Perigo) */ }
+    </style>
 </head>
 <body>
 
-    <h2>Controle de Gravação</h2>
+    <h1>Painel de Controle</h1>
 
-    <label for="deviceSelect">Dispositivo de Áudio:</label>
-    <select id="deviceSelect">
-        <option value="" disabled selected>Carregando dispositivos...</option>
-    </select>
+    <div class="section">
+        <h3>Nova Gravação</h3>
+        <label for="deviceSelect">Escolher Dispositivo:</label>
+        <select id="deviceSelect">
+            <option value="" disabled selected>Carregando dispositivos...</option>
+        </select>
+        <button id="btnRecord">Iniciar Gravação</button>
+        
+        <div id="lastRecordResult" style="margin-top: 10px; font-family: monospace; color: darkblue;"></div>
+        <p id="statusMsg" style="font-size: 0.9em;"></p>
+    </div>
 
-    <br><br>
+    <div class="section">
+        <h3>Gravações Ativas</h3>
+        <button onclick="loadRecordings()">Atualizar Ativas</button>
+        
+        <table id="recordingsTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Dispositivo</th>
+                    <th>Estado</th>
+                    <th>Criado em</th>
+                    <th>Última Modificação</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
 
-    <button id="btnRecord">Iniciar Gravação</button>
-    <a href="/api/v1/result">Resultado</a>
+    <div class="section">
+        <h3>Histórico</h3>
+        <button onclick="loadHistory()">Atualizar Histórico</button>
 
-    <p id="statusMsg" style="color: gray;"></p>
+        <table id="historyTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Dispositivo</th>
+                    <th>Estado</th>
+                    <th>Criado em</th>
+                    <th>Última Modificação</th>
+                    <th>Resultado</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
 
     <script>
+        const API_BASE = '/api/v1';
+
+        // Elementos do DOM
         const select = document.getElementById('deviceSelect');
         const btnRecord = document.getElementById('btnRecord');
         const statusMsg = document.getElementById('statusMsg');
+        const lastRecordResult = document.getElementById('lastRecordResult');
+        const tableBodyRecordings = document.querySelector('#recordingsTable tbody');
+        const tableBodyHistory = document.querySelector('#historyTable tbody');
 
+        // --- Funções Utilitárias ---
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '-';
+            const date = new Date(timestamp * 1000); 
+            return date.toLocaleString('pt-BR', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+        }
+        
+        // --- 1. Carregar Dispositivos (Sem Alteração) ---
         async function loadDevices() {
             try {
-                const response = await fetch('/api/v1/devices');
+                const response = await fetch(`${API_BASE}/devices`);
+                if (!response.ok) throw new Error('Erro ao buscar dispositivos');
                 
-                if (!response.ok) throw new Error('Falha ao buscar dispositivos');
-
                 const data = await response.json();
-
-                // Limpa o select
                 select.innerHTML = ''; 
 
-                // Itera sobre a lista recebida no JSON
                 data.devices.forEach(device => {
                     const option = document.createElement('option');
-                    
-                    // O valor enviado será o 'name' (ex: hw:CARD=CODEC,DEV=0)
-                    option.value = device.name; 
-                    
-                    // O texto visível combina descrição e nome para clareza
-                    option.textContent = `${device.description} (${device.name})`; 
-                    
+                    option.value = device.name;
+                    option.textContent = `${device.description} (${device.name})`;
                     select.appendChild(option);
                 });
-
             } catch (error) {
                 console.error(error);
                 statusMsg.textContent = 'Erro ao carregar lista de dispositivos.';
-                statusMsg.style.color = 'red';
+                statusMsg.className = 'error';
             }
         }
 
-        // 2. Função para enviar a requisição de gravação
+        // --- 2. Iniciar Gravação (Sem Alteração) ---
         btnRecord.addEventListener('click', async () => {
             const selectedDevice = select.value;
+            if (!selectedDevice) return alert('Selecione um dispositivo.');
 
-            if (!selectedDevice) {
-                alert('Por favor, selecione um dispositivo.');
-                return;
-            }
-
-            statusMsg.textContent = 'Enviando comando...';
-            statusMsg.style.color = 'blue';
+            statusMsg.textContent = 'Iniciando...';
+            statusMsg.className = '';
+            lastRecordResult.textContent = '';
 
             try {
-                const response = await fetch('/api/v1/record', {
+                const response = await fetch(`${API_BASE}/record`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        device: selectedDevice 
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device: selectedDevice })
                 });
 
                 if (response.ok) {
-                    statusMsg.textContent = `Gravação iniciada no dispositivo: ${selectedDevice}`;
-                    statusMsg.style.color = 'green';
+                    const data = await response.json();
+                    
+                    lastRecordResult.innerHTML = `
+                        <strong>Sucesso!</strong><br>
+                        ID: ${data.id} <br>
+                        Device: ${data.device_name} <br>
+                        Estado: <span class="state-${data.state}">${data.state}</span>
+                    `;
+                    statusMsg.textContent = 'Gravação iniciada.';
+                    statusMsg.className = 'success';
+                    
+                    loadRecordings(); 
                 } else {
-                    statusMsg.textContent = 'Erro ao iniciar gravação (Status ' + response.status + ')';
-                    statusMsg.style.color = 'red';
+                    statusMsg.textContent = 'Erro na requisição: ' + response.status;
+                    statusMsg.className = 'error';
                 }
-
             } catch (error) {
                 console.error(error);
-                statusMsg.textContent = 'Erro de conexão ao tentar gravar.';
-                statusMsg.style.color = 'red';
+                statusMsg.textContent = 'Erro de conexão.';
+                statusMsg.className = 'error';
             }
         });
 
+        // --- 3. Criar Linha da Tabela (Função Reutilizável) ---
+        function createTableRow(rec, isHistory = false) {
+            const tr = document.createElement('tr');
+
+            // 1. ID
+            tr.insertCell().textContent = rec.id;
+            
+            // 2. Dispositivo
+            tr.insertCell().textContent = rec.device_name;
+
+            // 3. Estado (com classe para cor)
+            const tdState = tr.insertCell();
+            tdState.textContent = rec.state;
+            tdState.className = `state-${rec.state}`;
+
+            // 4. Criado em
+            tr.insertCell().textContent = formatTimestamp(rec.created_at);
+
+            // 5. Última Modificação
+            tr.insertCell().textContent = formatTimestamp(rec.last_modification);
+
+            // 6. Ações/Resultado
+            const tdAction = tr.insertCell();
+
+            // Link para Resultado
+            const link = document.createElement('a');
+            link.href = `/api/v1/result/${rec.id}`;
+            link.textContent = isHistory ? 'Ver Resultado' : 'Acessar';
+            link.target = '_blank';
+            tdAction.appendChild(link);
+            
+            // Botão Parar (Só se NÃO for Histórico E o estado for 'recording')
+            if (!isHistory && rec.state === 'recording') {
+                const btnStop = document.createElement('button');
+                btnStop.textContent = 'Parar';
+                btnStop.style.color = 'red';
+                btnStop.style.marginLeft = '15px';
+                btnStop.onclick = () => stopRecording(rec.id);
+                tdAction.appendChild(btnStop);
+            }
+
+            return tr;
+        }
+
+
+        // --- 4. Listar Gravações Ativas (REMOVIDO O FILTRO DE ESTADO) ---
+        async function loadRecordings() {
+            try {
+                const response = await fetch(`${API_BASE}/recordings`);
+                if (!response.ok) throw new Error('Erro ao buscar gravações');
+
+                let list = await response.json();
+                if (list.recordings) list = list.recordings; 
+
+                tableBodyRecordings.innerHTML = ''; // Limpa tabela atual
+
+                if (!list || list.length === 0) {
+                    tableBodyRecordings.innerHTML = '<tr><td colspan="6">Nenhuma gravação encontrada.</td></tr>';
+                    return;
+                }
+
+                // Agora exibimos TODOS os estados (new, recording, stopped)
+                list.forEach(rec => { 
+                    const tr = createTableRow(rec, false);
+                    tableBodyRecordings.appendChild(tr);
+                });
+
+            } catch (error) {
+                console.error(error);
+                tableBodyRecordings.innerHTML = '<tr><td colspan="6" class="error">Erro ao carregar lista de ativas.</td></tr>';
+            }
+        }
+        
+        // --- 5. Listar Histórico (Sem Alteração) ---
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API_BASE}/history`);
+                if (!response.ok) throw new Error('Erro ao buscar histórico');
+
+                let list = await response.json();
+                if (list.recordings) list = list.recordings; 
+
+                tableBodyHistory.innerHTML = ''; // Limpa tabela atual
+
+                if (!list || list.length === 0) {
+                    tableBodyHistory.innerHTML = '<tr><td colspan="6">Nenhum registro no histórico.</td></tr>';
+                    return;
+                }
+
+                list.forEach(rec => {
+                    const tr = createTableRow(rec, true); // True = modo histórico
+                    tableBodyHistory.appendChild(tr);
+                });
+
+            } catch (error) {
+                console.error(error);
+                tableBodyHistory.innerHTML = '<tr><td colspan="6" class="error">Erro ao carregar histórico.</td></tr>';
+            }
+        }
+
+
+        // --- 6. Parar Gravação (Sem Alteração) ---
+        async function stopRecording(id) {
+            if(!confirm(`Deseja realmente parar a gravação ID ${id}?`)) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/stop`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id }) 
+                });
+
+                if (response.ok) {
+                    loadRecordings(); 
+                    loadHistory();
+                } else {
+                    alert('Erro ao parar gravação. Status: ' + response.status);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Erro de conexão ao tentar parar.');
+            }
+        }
+
+        // Inicialização
         loadDevices();
+        loadRecordings();
+        loadHistory();
+
     </script>
 
 </body>

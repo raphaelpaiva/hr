@@ -1,12 +1,17 @@
+import datetime
 from typing import List
 from time import sleep
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, BackgroundTasks
 from subprocess import TimeoutExpired, run, Popen, PIPE
 
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from sound_device import SoundDevice, parse_arecord_L
+from record import RECORDINGS, Recording, record_from_device
+
+from config import BASE_PATH
 
 CMD_LIST_DEVICES = ['arecord', '-L']
 
@@ -15,6 +20,24 @@ CALLS: List[str] = []
 app = FastAPI()
 v1_router = APIRouter(prefix="/api/v1", tags=["v1"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+class RecordResponse(BaseModel):
+  id: str
+  device_name: str
+  pid: int
+  state: str
+  created_at: datetime.datetime
+  last_modification: datetime.datetime
+
+  def __init__(self, rec: Recording):
+    super().__init__(
+      id=rec.id,
+      device_name=rec.device_name,
+      pid=rec.process.pid,
+      state=rec.state.value,
+      created_at=rec.created_at,
+      last_modification=rec.last_modification,
+    )
 
 @app.get("/")
 async def root():
@@ -36,29 +59,33 @@ async def devices():
 
 @v1_router.post("/record")
 async def record(payload: dict):
-  device = payload['device']
+  device_name = payload['device']
 
-  cmd = ['ffmpeg', '-y', '-f', 'alsa', '-i', device, '-ac', '2', 'bg.wav']
-  
-  process = Popen(cmd, stdin=PIPE, stdout=PIPE)
+  rec = record_from_device(device_name)
 
-  CALLS.append(f"/record/pid={process.pid}")
-  sleep(10)
+  return RecordResponse(rec)
 
-  try:
-    process.communicate(b'q', timeout=10)
-  except TimeoutExpired:
-    process.kill()
+@v1_router.get("/recordings")
+async def recordings():
+  CALLS.append('/recordings')
+  return {"recordings": [rec.__dict__() for rec in RECORDINGS]}
 
-  return {  
-    "pid": process.pid,
-    "rc": process.returncode
-  }
-
-@v1_router.get("/result", response_class=FileResponse)
-async def result():
+@v1_router.get("/result/{recording_id}", response_class=FileResponse)
+async def result(recording_id: str):
   CALLS.append('/result')
-  return "bg.wav"
+  print(f"Serving file for id: {recording_id}")
+  return f"{BASE_PATH}/{recording_id}/{recording_id}.wav"
+
+@v1_router.post("/stop")
+async def stop_recording(payload: dict):
+  CALLS.append('/stop')
+  recording_id = payload['id']
+  for rec in RECORDINGS:
+    if rec.id == recording_id:
+      rec.stop()
+      return {"status": "stopped", "id": recording_id}
+  
+  return {"status": "not found", "id": recording_id}
 
 @v1_router.get("/calls")
 def calls():
