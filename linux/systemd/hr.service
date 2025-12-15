@@ -3,10 +3,10 @@ Description=The Headless Recorder
 After=network.target
 
 [Service]
-User=raphaelpaiva
-Group=raphaelpaiva
-WorkingDirectory=/home/raphaelpaiva/hr_work
-ExecStart=/home/raphaelpaiva/hr_work/prd.sh
+User=username
+Group=username
+WorkingDirectory=/home/username/hr
+ExecStart=/home/username/hr/prd.sh
 Restart=always
 RestartSec=5
 
