@@ -91,4 +91,16 @@ async def stop_recording(payload: dict):
 def calls():
   return {"calls": CALLS}
 
+@v1_router.post("/shutdown")
+def shutdown_system(background_tasks: BackgroundTasks):
+  CALLS.append('/shutdown')
+  
+  def shutdown():
+    sleep(1)
+    run(['sudo', 'shutdown', 'now'])
+  
+  background_tasks.add_task(shutdown)
+  
+  return {"status": "shutting down"}
+
 app.include_router(v1_router)
