@@ -1,0 +1,14 @@
+[Unit]
+Description=The Headless Recorder
+After=network.target
+
+[Service]
+User=raphaelpaiva
+Group=raphaelpaiva
+WorkingDirectory=/home/raphaelpaiva/hr_work
+ExecStart=/home/raphaelpaiva/hr_work/prd.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

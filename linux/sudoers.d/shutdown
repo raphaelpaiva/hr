@@ -1,0 +1,5 @@
+# Allow user to power off/reboot without password
+username ALL=(ALL) NOPASSWD: /sbin/shutdown
+username ALL=(ALL) NOPASSWD: /sbin/poweroff
+username ALL=(ALL) NOPASSWD: /sbin/reboot
+username ALL=(ALL) NOPASSWD: /sbin/halt
