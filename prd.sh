@@ -2,7 +2,7 @@
 
 pip install virtualenv
 
-virtualenv venv
+python -m virtualenv venv
 
 . ./venv/bin/activate
 
