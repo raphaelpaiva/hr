@@ -12,6 +12,8 @@ from sound_device import SoundDevice, parse_arecord_L
 from record import RECORDINGS, Recording, record_from_device
 from history import get_history
 
+from system import get_header_info
+
 from config import BASE_PATH
 
 CMD_LIST_DEVICES = ['arecord', '-L']
@@ -108,5 +110,9 @@ def shutdown_system(background_tasks: BackgroundTasks):
   background_tasks.add_task(shutdown)
   
   return {"status": "shutting down"}
+
+@v1_router.get("/health")
+def health():
+  return get_header_info()
 
 app.include_router(v1_router)

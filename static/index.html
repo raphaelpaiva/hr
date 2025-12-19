@@ -8,11 +8,14 @@
     <script src="/static/js/tailwind.min.js"></script>
     
     <style type="text/tailwindcss">
-        /* Estilos customizados que o Tailwind processará localmente */
         @layer components {
             .state-recording { @apply text-red-600; }
             .state-new { @apply text-yellow-500; }
             .state-stopped { @apply text-green-600; }
+            /* Cores para os indicadores de saúde */
+            .health-green { @apply text-green-400; }
+            .health-yellow { @apply text-yellow-400; }
+            .health-red { @apply text-red-500 font-bold; }
         }
     </style>
 </head>
@@ -21,42 +24,53 @@
     <nav class="fixed top-0 left-0 right-0 bg-slate-900 text-white z-50 shadow-md">
         <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <a class="text-xl font-bold tracking-tight" href="#">O Gravador Sem Cabeça</a>
-            <button id="btnShutdown" 
-                    onclick="shutdownSystem()"
-                    class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm">
-                Desligar Sistema
-            </button>
+            
+            <div class="flex items-center gap-6">
+                <div id="systemHealth" class="flex items-center gap-4 border-r border-slate-700 pr-6 text-sm font-mono">
+                    <div id="stat-load" title="Carga do Sistema">
+                        <span class="text-slate-400 mr-1">📊</span><span class="value">--</span>
+                    </div>
+                    <div id="stat-mem" title="Uso de Memória">
+                        <span class="text-slate-400 mr-1">🧠</span><span class="value">--%</span>
+                    </div>
+                    <div id="stat-disk" title="Espaço em Disco">
+                        <span class="text-slate-400 mr-1">💾</span><span class="value">--%</span>
+                    </div>
+                </div>
+
+                <button id="btnShutdown" 
+                        onclick="shutdownSystem()"
+                        class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm">
+                    Desligar
+                </button>
+            </div>
         </div>
     </nav>
 
     <div class="max-w-7xl mx-auto px-4 py-8"> 
-        <h1 class="text-3xl font-extrabold mb-8 text-slate-800">Painel de Controle</h1>
+        <h1 class="text-3xl font-extrabold mb-8 text-slate-800 text-center md:text-left">Painel de Controle</h1>
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
             <h3 class="text-xl font-semibold mb-4 text-slate-700">Nova Gravação</h3>
-            
-            <div class="flex flex-wrap items-center gap-4 mb-3">
-                <label for="deviceSelect" class="font-medium text-gray-700 text-sm">Escolher Dispositivo:</label>
-                <select id="deviceSelect" class="flex-1 min-w-[250px] max-w-md bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+            <div class="flex flex-wrap items-center gap-4">
+                <select id="deviceSelect" class="flex-1 min-w-[250px] bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
                     <option value="" disabled selected>Carregando dispositivos...</option>
                 </select>
                 <button id="btnRecord" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg transition-all shadow-sm">
                     Iniciar Gravação
                 </button>
             </div>
-            
-            <div id="lastRecordResult" class="hidden mt-4 p-4 bg-gray-100 rounded-lg border border-gray-200 text-blue-800 font-mono text-sm"></div>
+            <div id="lastRecordResult" class="hidden mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100 text-blue-800 font-mono text-sm"></div>
             <p id="statusMsg" class="mt-2 text-sm h-5"></p>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-semibold text-slate-700">Gravações Ativas</h3>
-                <button onclick="loadRecordings()" class="bg-slate-500 hover:bg-slate-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors">
-                    Atualizar Ativas
+                <button onclick="loadRecordings()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold py-2 px-4 rounded-lg transition-colors">
+                    ↻ Atualizar
                 </button>
             </div>
-            
             <div class="overflow-x-auto rounded-lg border border-gray-200">
                 <table id="recordingsTable" class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -66,7 +80,6 @@
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Dispositivo</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Estado</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Criado em</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Modificação</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200"></tbody>
@@ -77,20 +90,18 @@
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-semibold text-slate-700">Histórico</h3>
-                <button onclick="loadHistory()" class="bg-slate-500 hover:bg-slate-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors">
-                    Atualizar Histórico
+                <button onclick="loadHistory()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold py-2 px-4 rounded-lg transition-colors">
+                    ↻ Atualizar
                 </button>
             </div>
-
             <div class="overflow-x-auto rounded-lg border border-gray-200">
                 <table id="historyTable" class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Resultado</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Download</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">ID</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Dispositivo</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Criado em</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Modificação</th>
                         </tr>
                     </thead>
@@ -103,72 +114,96 @@
     <script>
         const API_BASE = '/api/v1';
 
+        // Lógica de Saúde do Sistema
+        function getHealthColorClass(value) {
+            if (value < 75) return 'health-green';
+            if (value < 90) return 'health-yellow';
+            return 'health-red';
+        }
+
+        async function updateHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (!response.ok) return;
+                const data = await response.json();
+
+                // Atualiza Carga (Load) - Formatado 2 casas decimais
+                const loadEl = document.querySelector('#stat-load .value');
+                loadEl.textContent = data.load.toFixed(2);
+                loadEl.className = 'value ' + getHealthColorClass(data.load * 10); // Escala arbitrária para cores no load se necessário
+
+                // Atualiza Memória - 1 casa decimal + %
+                const memEl = document.querySelector('#stat-mem .value');
+                memEl.textContent = data.mem_usage.toFixed(1) + '%';
+                memEl.className = 'value ' + getHealthColorClass(data.mem_usage);
+
+                // Atualiza Disco - 1 casa decimal + %
+                const diskEl = document.querySelector('#stat-disk .value');
+                diskEl.textContent = data.disk_usage.toFixed(1) + '%';
+                diskEl.className = 'value ' + getHealthColorClass(data.disk_usage);
+
+            } catch (error) {
+                console.error('Erro ao buscar saúde do sistema:', error);
+            }
+        }
+
+        // Configura o intervalo de atualização (1 minuto = 60000ms)
+        setInterval(updateHealth, 60000);
+        updateHealth(); // Executa imediatamente ao carregar
+
+        // --- Lógica Restante do Sistema ---
         const select = document.getElementById('deviceSelect');
         const btnRecord = document.getElementById('btnRecord');
         const statusMsg = document.getElementById('statusMsg');
         const lastRecordResult = document.getElementById('lastRecordResult');
         const tableBodyRecordings = document.querySelector('#recordingsTable tbody');
         const tableBodyHistory = document.querySelector('#historyTable tbody');
-        const btnShutdown = document.getElementById('btnShutdown');
 
         const STATE_ICONS = {
-            'recording': '<span class="text-lg leading-none state-recording" title="Gravando">🔴</span>',
-            'new': '<span class="text-lg leading-none state-new" title="Novo">🟡</span>',
-            'stopped': '<span class="text-lg leading-none state-stopped" title="Finalizado">✅</span>'
+            'recording': '<span class="text-lg leading-none state-recording">🔴</span>',
+            'new': '<span class="text-lg leading-none state-new">🟡</span>',
+            'stopped': '<span class="text-lg leading-none state-stopped">✅</span>'
         };
 
         function formatTimestamp(timestamp) {
             if (!timestamp) return '-';
             const date = new Date(timestamp * 1000); 
-            return date.toLocaleString('pt-BR', { 
-                year: 'numeric', month: '2-digit', day: '2-digit', 
-                hour: '2-digit', minute: '2-digit', second: '2-digit' 
-            });
-        }
-        
-        function sortByCreatedAt(a, b) {
-            return b.created_at - a.created_at;
+            return date.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
         async function shutdownSystem() {
-            if (!confirm("Deseja realmente desligar o sistema?")) return;
-            btnShutdown.disabled = true;
-            try {
-                const response = await fetch(`${API_BASE}/shutdown`, { method: 'POST' });
-                if (response.ok) alert('Sistema encerrado.');
-            } catch (error) { alert('Erro ao desligar.'); }
-            finally { btnShutdown.disabled = false; }
+            if (!confirm("Desligar o sistema agora?")) return;
+            try { await fetch(`${API_BASE}/shutdown`, { method: 'POST' }); } 
+            catch (e) { alert('Comando enviado.'); }
         }
 
         async function loadDevices() {
             try {
-                const response = await fetch(`${API_BASE}/devices`);
-                const data = await response.json();
+                const res = await fetch(`${API_BASE}/devices`);
+                const data = await res.json();
                 select.innerHTML = '<option value="" disabled selected>Selecione um dispositivo</option>'; 
-                data.devices.forEach(device => {
-                    const option = document.createElement('option');
-                    option.value = device.name;
-                    option.textContent = `${device.description} (${device.name})`;
-                    select.appendChild(option);
+                data.devices.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.name; opt.textContent = `${d.description}`;
+                    select.appendChild(opt);
                 });
             } catch (e) { statusMsg.textContent = 'Erro ao carregar dispositivos.'; }
         }
 
         btnRecord.addEventListener('click', async () => {
-            const selectedDevice = select.value;
-            if (!selectedDevice) return;
+            if (!select.value) return;
             btnRecord.disabled = true;
             try {
-                const response = await fetch(`${API_BASE}/record`, {
+                const res = await fetch(`${API_BASE}/record`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device: selectedDevice })
+                    body: JSON.stringify({ device: select.value })
                 });
-                if (response.ok) {
-                    const data = await response.json();
-                    lastRecordResult.innerHTML = `ID: ${data.id.substring(0, 8)}... Iniciado.`;
+                if (res.ok) {
+                    const d = await res.json();
+                    lastRecordResult.innerHTML = `Gravação <strong>${d.id.substring(0,8)}</strong> iniciada.`;
                     lastRecordResult.classList.remove('hidden');
-                    loadRecordings(); 
+                    loadRecordings();
                 }
             } finally { btnRecord.disabled = false; }
         });
@@ -182,8 +217,7 @@
 
             const link = document.createElement('a');
             link.href = `/api/v1/result/${rec.id}`;
-            link.target = '_blank';
-            link.className = 'w-9 h-9 flex items-center justify-center bg-cyan-100 hover:bg-cyan-200 text-cyan-700 rounded-lg text-lg';
+            link.className = 'w-9 h-9 flex items-center justify-center bg-cyan-50 text-cyan-600 rounded-lg border border-cyan-100 hover:bg-cyan-100';
             link.innerHTML = '⤓';
             tdAction.appendChild(link);
             
@@ -191,19 +225,18 @@
                 const btnStop = document.createElement('button');
                 btnStop.innerHTML = '⏹';
                 if (rec.state === 'recording') {
-                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-red-100 hover:bg-red-200 text-red-600 rounded-lg';
+                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-red-50 text-red-600 rounded-lg border border-red-100 hover:bg-red-100';
                     btnStop.onclick = () => stopRecording(rec.id);
                 } else {
-                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed';
+                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-gray-50 text-gray-400 rounded-lg cursor-not-allowed';
                 }
                 tdAction.appendChild(btnStop);
             }
 
-            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm text-gray-600 font-mono">${rec.id.substring(0, 8)}...</span>`;
-            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm text-gray-900 font-medium">${rec.device_name}</span>`;
+            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm font-mono text-gray-500">${rec.id.substring(0, 8)}</span>`;
+            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm font-medium">${rec.device_name}</span>`;
             tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm">${STATE_ICONS[rec.state] || rec.state}</span>`;
-            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm text-gray-500">${formatTimestamp(rec.created_at)}</span>`;
-            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm text-gray-500">${formatTimestamp(rec.last_modification)}</span>`;
+            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm text-gray-400">${formatTimestamp(isHistory ? rec.last_modification : rec.created_at)}</span>`;
             
             return tr;
         }
@@ -211,22 +244,20 @@
         async function loadRecordings() {
             try {
                 const res = await fetch(`${API_BASE}/recordings`);
-                let list = await res.json();
-                list = list.recordings || list;
-                list.sort(sortByCreatedAt);
+                const data = await res.json();
+                const list = data.recordings || data;
                 tableBodyRecordings.innerHTML = '';
-                list.forEach(rec => tableBodyRecordings.appendChild(createTableRow(rec, false)));
+                list.sort((a,b) => b.created_at - a.created_at).forEach(r => tableBodyRecordings.appendChild(createTableRow(r, false)));
             } catch (e) {}
         }
         
         async function loadHistory() {
             try {
                 const res = await fetch(`${API_BASE}/history`);
-                let list = await res.json();
-                list = list.history || list;
-                list.sort(sortByCreatedAt);
+                const data = await res.json();
+                const list = data.history || data;
                 tableBodyHistory.innerHTML = '';
-                list.forEach(rec => tableBodyHistory.appendChild(createTableRow(rec, true)));
+                list.sort((a,b) => b.created_at - a.created_at).forEach(r => tableBodyHistory.appendChild(createTableRow(r, true)));
             } catch (e) {}
         }
 
@@ -236,8 +267,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: id }) 
             });
-            loadRecordings(); 
-            loadHistory();
+            loadRecordings(); loadHistory();
         }
 
         loadDevices(); loadRecordings(); loadHistory();
