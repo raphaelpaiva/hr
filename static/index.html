@@ -405,7 +405,7 @@
                 if (!response.ok) throw new Error('Erro ao buscar histórico');
 
                 let list = await response.json();
-                if (list.recordings) list = list.recordings; 
+                if (list.history) list = list.history; 
                 
                 list.sort(sortByCreatedAt);
 

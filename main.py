@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from sound_device import SoundDevice, parse_arecord_L
 from record import RECORDINGS, Recording, record_from_device
+from history import get_history
 
 from config import BASE_PATH
 
@@ -69,6 +70,11 @@ async def record(payload: dict):
 async def recordings():
   CALLS.append('/recordings')
   return {"recordings": [rec.__dict__() for rec in RECORDINGS]}
+
+@v1_router.get("/history")
+async def history():
+  CALLS.append('/history')
+  return {"history": [rec.__dict__() for rec in get_history()]}
 
 @v1_router.get("/result/{recording_id}", response_class=FileResponse)
 async def result(recording_id: str):
