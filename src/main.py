@@ -2,19 +2,19 @@ import datetime
 from typing import List
 from time import sleep
 from fastapi import FastAPI, APIRouter, BackgroundTasks
-from subprocess import TimeoutExpired, run, Popen, PIPE
+from subprocess import run
 
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from sound_device import SoundDevice, parse_arecord_L
-from record import RECORDINGS, Recording, record_from_device
-from history import get_history
+from app.sound_device import SoundDevice, parse_arecord_L
+from app.record import RECORDINGS, Recording, record_from_device
+from app.history import get_history
 
-from system import get_header_info
+from app.system import get_header_info
 
-from config import BASE_PATH
+from app.config import BASE_PATH
 
 CMD_LIST_DEVICES = ['arecord', '-L']
 

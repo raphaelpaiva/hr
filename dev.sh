@@ -7,4 +7,4 @@ virtualenv venv
 . ./venv/bin/activate
 
 pip install -r requirements.txt
-fastapi dev main.py --host 0.0.0.0
+fastapi dev src/main.py --host 0.0.0.0

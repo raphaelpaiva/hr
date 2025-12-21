@@ -6,7 +6,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import List, Union
 
-from config import BASE_PATH
+from .config import BASE_PATH
 from datetime import datetime
 
 class RecordState(Enum):

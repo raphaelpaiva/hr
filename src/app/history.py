@@ -1,8 +1,10 @@
 import json
-from record import Recording
-from config import BASE_PATH
+
 from pathlib import Path
 from typing import List
+
+from .record import Recording
+from .config import BASE_PATH
 
 RECORDINGS_PATH = Path(BASE_PATH)
 
