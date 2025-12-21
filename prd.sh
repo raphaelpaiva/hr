@@ -7,4 +7,4 @@ python -m virtualenv venv
 . ./venv/bin/activate
 
 pip install -r requirements.txt
-fastapi run src/main.py --port 80 --host 8000
+fastapi run src/main.py --port 8000 --host 0.0.0.0
