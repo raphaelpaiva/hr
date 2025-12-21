@@ -184,7 +184,7 @@
                 select.innerHTML = '<option value="" disabled selected>Selecione um dispositivo</option>'; 
                 data.devices.forEach(d => {
                     const opt = document.createElement('option');
-                    opt.value = d.name; opt.textContent = `${d.description}`;
+                    opt.value = d.name; opt.textContent = `${d.name}`;
                     select.appendChild(opt);
                 });
             } catch (e) { statusMsg.textContent = 'Erro ao carregar dispositivos.'; }
