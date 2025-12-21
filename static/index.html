@@ -60,6 +60,11 @@
                     Iniciar Gravação
                 </button>
             </div>
+            
+            <div class="mt-3 flex items-center">
+                <input id="showAllDevices" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                <label for="showAllDevices" class="ml-2 text-sm font-medium text-gray-600 select-none cursor-pointer">Mostrar todos os dispositivos (incluindo hardware interno)</label>
+            </div>
             <div id="lastRecordResult" class="hidden mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100 text-blue-800 font-mono text-sm"></div>
             <p id="statusMsg" class="mt-2 text-sm h-5"></p>
         </div>
@@ -111,6 +116,199 @@
         </div>
     </div> 
 
-    <script src="/static/js/hr.js"></script>
+    <script>
+        const API_BASE = '/api/v1';
+        let allDevices = []; // Armazena a lista completa vinda do servidor
+
+        // Lógica de Saúde do Sistema
+        function getHealthColorClass(value) {
+            if (value < 75) return 'health-green';
+            if (value < 90) return 'health-yellow';
+            return 'health-red';
+        }
+
+        async function updateHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (!response.ok) return;
+                const data = await response.json();
+
+                const loadEl = document.querySelector('#stat-load .value');
+                loadEl.textContent = data.load.toFixed(2);
+                loadEl.className = 'value ' + getHealthColorClass(data.load * 10);
+
+                const memEl = document.querySelector('#stat-mem .value');
+                memEl.textContent = data.mem_usage.toFixed(1) + '%';
+                memEl.className = 'value ' + getHealthColorClass(data.mem_usage);
+
+                const diskEl = document.querySelector('#stat-disk .value');
+                diskEl.textContent = data.disk_usage.toFixed(1) + '%';
+                diskEl.className = 'value ' + getHealthColorClass(data.disk_usage);
+
+            } catch (error) {
+                console.error('Erro ao buscar saúde do sistema:', error);
+            }
+        }
+
+        setInterval(updateHealth, 60000);
+        updateHealth();
+
+        const select = document.getElementById('deviceSelect');
+        const btnRecord = document.getElementById('btnRecord');
+        const statusMsg = document.getElementById('statusMsg');
+        const lastRecordResult = document.getElementById('lastRecordResult');
+        const tableBodyRecordings = document.querySelector('#recordingsTable tbody');
+        const tableBodyHistory = document.querySelector('#historyTable tbody');
+        const showAllCheckbox = document.getElementById('showAllDevices');
+
+        const STATE_ICONS = {
+            'recording': '<span class="text-lg leading-none state-recording">🔴</span>',
+            'new': '<span class="text-lg leading-none state-new">🟡</span>',
+            'stopped': '<span class="text-lg leading-none state-stopped">✅</span>'
+        };
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '-';
+            const date = new Date(timestamp * 1000); 
+            return date.toLocaleString('pt-BR', { weekday: 'short', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        async function shutdownSystem() {
+            if (!confirm("Desligar o sistema agora?")) return;
+            try { await fetch(`${API_BASE}/shutdown`, { method: 'POST' }); } 
+            catch (e) { alert('Comando enviado.'); }
+        }
+
+        // --- Nova Lógica de Dispositivos ---
+
+        function renderDevices() {
+            const showAll = showAllCheckbox.checked;
+            
+            // Limpa o select mantendo apenas o placeholder
+            select.innerHTML = '<option value="" disabled selected>Selecione um dispositivo</option>';
+
+            // Filtra e ordena
+            let filtered = allDevices.filter(d => {
+                // Sempre inclui "null"
+                if (d.name === 'null') return true;
+                // Se "Mostrar todos" estiver marcado, inclui tudo
+                if (showAll) return true;
+                // Caso contrário, apenas os que começam com plughw
+                return d.name.startsWith('plughw');
+            });
+
+            // Ordenação: "null" primeiro, depois o resto por ordem alfabética
+            filtered.sort((a, b) => {
+                if (a.name === 'null') return -1;
+                if (b.name === 'null') return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            filtered.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.name; 
+                opt.textContent = d.name;
+                select.appendChild(opt);
+            });
+        }
+
+        async function loadDevices() {
+            try {
+                const res = await fetch(`${API_BASE}/devices`);
+                const data = await res.json();
+                allDevices = data.devices || [];
+                renderDevices();
+            } catch (e) { 
+                statusMsg.textContent = 'Erro ao carregar dispositivos.'; 
+            }
+        }
+
+        // Listener para o checkbox de filtro
+        showAllCheckbox.addEventListener('change', renderDevices);
+
+        // --- Fim da Nova Lógica ---
+
+        btnRecord.addEventListener('click', async () => {
+            if (!select.value) return;
+            btnRecord.disabled = true;
+            try {
+                const res = await fetch(`${API_BASE}/record`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device: select.value })
+                });
+                if (res.ok) {
+                    const d = await res.json();
+                    lastRecordResult.innerHTML = `Gravação <strong>${d.id.substring(0,8)}</strong> iniciada.`;
+                    lastRecordResult.classList.remove('hidden');
+                    loadRecordings();
+                }
+            } finally { btnRecord.disabled = false; }
+        });
+
+        function createTableRow(rec, isHistory = false) {
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-gray-50 transition-colors";
+
+            const tdAction = tr.insertCell();
+            tdAction.className = 'px-4 py-3 flex justify-center items-center gap-2'; 
+
+            const link = document.createElement('a');
+            link.href = `/api/v1/result/${rec.id}`;
+            link.className = 'w-9 h-9 flex items-center justify-center bg-cyan-50 text-cyan-600 rounded-lg border border-cyan-100 hover:bg-cyan-100';
+            link.innerHTML = '⤓';
+            tdAction.appendChild(link);
+            
+            if (!isHistory) {
+                const btnStop = document.createElement('button');
+                btnStop.innerHTML = '⏹';
+                if (rec.state === 'recording') {
+                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-red-50 text-red-600 rounded-lg border border-red-100 hover:bg-red-100';
+                    btnStop.onclick = () => stopRecording(rec.id);
+                } else {
+                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-gray-50 text-gray-400 rounded-lg cursor-not-allowed';
+                }
+                tdAction.appendChild(btnStop);
+            }
+
+            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm font-mono text-gray-500">${rec.id.substring(0, 8)}</span>`;
+            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm font-medium">${rec.device_name}</span>`;
+            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm">${STATE_ICONS[rec.state] || rec.state}</span>`;
+            tr.insertCell().innerHTML = `<span class="px-4 py-3 text-sm text-gray-400">${formatTimestamp(isHistory ? rec.last_modification : rec.created_at)}</span>`;
+            
+            return tr;
+        }
+
+        async function loadRecordings() {
+            try {
+                const res = await fetch(`${API_BASE}/recordings`);
+                const data = await res.json();
+                const list = data.recordings || data;
+                tableBodyRecordings.innerHTML = '';
+                list.sort((a,b) => b.created_at - a.created_at).forEach(r => tableBodyRecordings.appendChild(createTableRow(r, false)));
+            } catch (e) {}
+        }
+        
+        async function loadHistory() {
+            try {
+                const res = await fetch(`${API_BASE}/history`);
+                const data = await res.json();
+                const list = data.history || data;
+                tableBodyHistory.innerHTML = '';
+                list.sort((a,b) => b.created_at - a.created_at).forEach(r => tableBodyHistory.appendChild(createTableRow(r, true)));
+            } catch (e) {}
+        }
+
+        async function stopRecording(id) {
+            await fetch(`${API_BASE}/stop`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id }) 
+            });
+            loadRecordings(); loadHistory();
+        }
+
+        loadDevices(); loadRecordings(); loadHistory();
+    </script>
 </body>
 </html>
