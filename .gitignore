@@ -4,3 +4,6 @@ recordings/
 .env
 *.pyc
 .DS_Store
+build/
+dist/
+*.spec

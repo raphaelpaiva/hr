@@ -116,3 +116,7 @@ def health():
   return get_header_info()
 
 app.include_router(v1_router)
+
+if __name__ == "__main__":
+  import uvicorn
+  uvicorn.run(app, host="0.0.0.0", port=8000)
