@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import List
 
-from .record import Recording
+from .sound_system.recording import Recording
 from .config import BASE_PATH
 
 RECORDINGS_PATH = Path(BASE_PATH)
