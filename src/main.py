@@ -15,7 +15,7 @@ from app.history import get_history
 from app.system import get_header_info
 
 from app.config import BASE_PATH
-from app.sound_system.sound_system import SoundSystem, DummyAlsaSoundSystem, SoundDevice
+from app.sound_system.sound_system import AlsaSoundSystem, SoundSystem, DummyAlsaSoundSystem, SoundDevice
 
 CALLS: List[str] = []
 
@@ -23,8 +23,8 @@ app = FastAPI()
 v1_router = APIRouter(prefix="/api/v1", tags=["v1"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# sound_system = AlsaSoundSystem()
-SOUND_SYSTEM: SoundSystem = DummyAlsaSoundSystem()
+SOUND_SYSTEM = AlsaSoundSystem()
+# SOUND_SYSTEM: SoundSystem = DummyAlsaSoundSystem()
 CURRENT_RECORDINGS: Dict[str, Recording] = {}
 
 class RecordResponse(BaseModel):
