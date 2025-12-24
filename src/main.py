@@ -17,13 +17,11 @@ from app.system import get_header_info
 from app.config import BASE_PATH
 from app.sound_system.sound_system import AlsaSoundSystem, SoundSystem, DummyAlsaSoundSystem, SoundDevice
 
-CALLS: List[str] = []
-
 app = FastAPI()
 v1_router = APIRouter(prefix="/api/v1", tags=["v1"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-SOUND_SYSTEM = AlsaSoundSystem()
+SOUND_SYSTEM: SoundSystem = AlsaSoundSystem()
 # SOUND_SYSTEM: SoundSystem = DummyAlsaSoundSystem()
 CURRENT_RECORDINGS: Dict[str, Recording] = {}
 
@@ -46,7 +44,6 @@ class RecordResponse(BaseModel):
 
 @app.get("/")
 async def root():
-  CALLS.append('/')
   with open("static/index.html", "r") as f:
     index_html = f.read()
   
@@ -54,23 +51,19 @@ async def root():
 
 @v1_router.get("/devices")
 async def devices():
-  CALLS.append('/devices')
   devices: List[SoundDevice] = SOUND_SYSTEM.list_devices()
   return {"devices": devices}
 
 @v1_router.get("/recordings")
 async def recordings():
-  CALLS.append('/recordings')
   return {"recordings": [rec.__dict__() for rec in SOUND_SYSTEM.get_recordings()]}
 
 @v1_router.get("/history")
 async def history():
-  CALLS.append('/history')
   return {"history": [rec.__dict__() for rec in get_history()]}
 
 @v1_router.get("/result/{recording_id}", response_class=FileResponse)
 async def result(recording_id: str):
-  CALLS.append('/result')
   print(f"Serving file for id: {recording_id}")
   filename = f"{BASE_PATH}/{recording_id}/{recording_id}.wav"
 
@@ -91,7 +84,6 @@ async def record(payload: dict):
 
 @v1_router.post("/stop")
 async def stop_recording(payload: dict):
-  CALLS.append('/stop')
   recording_id = payload['id']
   recording = CURRENT_RECORDINGS.get(recording_id)
   if not recording:
@@ -99,16 +91,9 @@ async def stop_recording(payload: dict):
   
   SOUND_SYSTEM.stop_recording(recording)
   return {"status": "stopped", "id": recording_id}
-  
-
-@v1_router.get("/calls")
-def calls():
-  return {"calls": CALLS}
 
 @v1_router.post("/shutdown")
 def shutdown_system(background_tasks: BackgroundTasks):
-  CALLS.append('/shutdown')
-  
   def shutdown():
     sleep(1)
     run(['sudo', 'shutdown', 'now'])
