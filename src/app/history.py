@@ -10,6 +10,9 @@ RECORDINGS_PATH = Path(BASE_PATH)
 
 def get_history() -> List[Recording]:
   recordings: List[Recording] = []
+  if not RECORDINGS_PATH.exists():
+    return recordings
+  
   for rec_dir in RECORDINGS_PATH.iterdir():
     if rec_dir.is_dir():
       json_file = rec_dir / "recording.json"
