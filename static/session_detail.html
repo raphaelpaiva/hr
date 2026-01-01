@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sessão - O Gravador Sem Cabeça</title>
+    <script src="/static/js/tailwind.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 pt-20">
+
+    <div class="max-w-5xl mx-auto px-4 py-8">
+        <a href="/sessions" class="text-blue-600 text-sm font-medium hover:underline">← Voltar para todas as sessões</a>
+        
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mt-4 mb-8 gap-4">
+            <div>
+                <h1 id="sessionTitle" class="text-3xl font-extrabold text-slate-800 italic">Carregando sessão...</h1>
+                <p id="sessionMeta" class="text-slate-500 text-sm"></p>
+            </div>
+            
+            <div class="flex gap-2">
+                <button id="btnMainRecord" onclick="toggleTake()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center gap-3 text-xl">
+                    <span id="recIcon">🔴</span> <span id="recText">INICIAR TAKE 1</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-4 bg-slate-100 border-b border-gray-200 font-semibold text-slate-700">
+                Linha do Tempo (Takes)
+            </div>
+            <div id="takesList" class="divide-y divide-gray-200">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1';
+        
+        // --- 1. CAPTURAR O ID DA URL ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('id');
+        
+        let isRecording = false;
+        let nextTakeNumber = 1;
+
+        if (!sessionId) {
+            alert("ID da sessão não encontrado!");
+            window.location.href = '/sessions';
+        }
+
+        async function loadSessionDetails() {
+            try {
+                // Busca os dados da sessão (incluindo os takes)
+                const res = await fetch(`${API_BASE}/session/${sessionId}`);
+                const session = await res.json();
+                
+                document.getElementById('sessionTitle').textContent = session.name;
+                document.getElementById('sessionMeta').textContent = `Criada em ${new Date(session.created_at * 1000).toLocaleString()}`;
+                
+                renderTakes(session.takes);
+                nextTakeNumber = (session.takes.length || 0) + 1;
+                updateRecordButton();
+            } catch (e) {
+                console.error("Erro ao carregar detalhes:", e);
+            }
+        }
+
+        function renderTakes(takes) {
+            const list = document.getElementById('takesList');
+            list.innerHTML = takes.length ? '' : '<p class="p-8 text-center text-gray-400">Nenhum take gravado ainda.</p>';
+            
+            takes.sort((a,b) => b.sequence_number - a.sequence_number).forEach(take => {
+                const div = document.createElement('div');
+                div.className = "p-4 hover:bg-gray-50 flex justify-between items-center";
+                div.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <span class="font-mono text-slate-400">#${take.sequence_number}</span>
+                        <div>
+                            <div class="font-bold text-slate-700">${take.display_name || 'Take ' + take.sequence_number}</div>
+                            <div class="text-xs text-gray-400">${take.recordings.length} arquivos gravados</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="text-blue-600 hover:bg-blue-50 p-2 rounded">Renomear</button>
+                        <button class="text-cyan-600 hover:bg-cyan-50 p-2 rounded">Download .zip</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function updateRecordButton() {
+            const btn = document.getElementById('btnMainRecord');
+            const text = document.getElementById('recText');
+            const icon = document.getElementById('recIcon');
+
+            if (isRecording) {
+                btn.classList.replace('bg-red-600', 'bg-slate-800');
+                btn.classList.replace('hover:bg-red-700', 'hover:bg-slate-900');
+                text.textContent = "PARAR GRAVAÇÃO";
+                icon.textContent = "⏹️";
+            } else {
+                btn.classList.replace('bg-slate-800', 'bg-red-600');
+                btn.classList.replace('hover:bg-slate-900', 'hover:bg-red-700');
+                text.textContent = `INICIAR TAKE ${nextTakeNumber}`;
+                icon.textContent = "🔴";
+            }
+        }
+
+        async function toggleTake() {
+            if (!isRecording) {
+                // Iniciar Gravação
+                const res = await fetch(`${API_BASE}/session/${sessionId}/take/start`, { method: 'POST' });
+                if (res.ok) {
+                    isRecording = true;
+                    updateRecordButton();
+                }
+            } else {
+                // Parar Gravação
+                const res = await fetch(`${API_BASE}/session/${sessionId}/take/stop`, { method: 'POST' });
+                if (res.ok) {
+                    isRecording = false;
+                    loadSessionDetails(); // Recarrega a lista
+                }
+            }
+        }
+
+        loadSessionDetails();
+    </script>
+</body>
+</html>

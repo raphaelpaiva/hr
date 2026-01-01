@@ -16,6 +16,7 @@ from app.system import get_header_info
 
 from app.config import BASE_PATH
 from app.sound_system.sound_system import AlsaSoundSystem, SoundSystem, DummyAlsaSoundSystem, SoundDevice
+from app.sessions.session import Session, Take
 
 app = FastAPI()
 v1_router = APIRouter(prefix="/api/v1", tags=["v1"])
@@ -24,6 +25,16 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 SOUND_SYSTEM: SoundSystem = AlsaSoundSystem()
 # SOUND_SYSTEM: SoundSystem = DummyAlsaSoundSystem()
 CURRENT_RECORDINGS: Dict[str, Recording] = {}
+SESSIONS: List[Session] = []
+
+def find_session_by_id(session_id: str) -> Session | None:
+  return next((s for s in SESSIONS if s.id == session_id), None)
+
+def get_session_or_404(session_id: str) -> Session:
+  session = find_session_by_id(session_id)
+  if not session:
+    raise HTTPException(status_code=404, detail="Session not found")
+  return session
 
 class RecordResponse(BaseModel):
   id: str
@@ -48,6 +59,49 @@ async def root():
     index_html = f.read()
   
   return HTMLResponse(content=index_html, status_code=200)
+
+@app.get("/sessions")
+async def sessions(id: str | None = None):
+  if id:
+    with open("static/session_detail.html", "r") as f:
+      index_html = f.read()
+    
+    return HTMLResponse(content=index_html, status_code=200)
+  
+  with open("static/session.html", "r") as f:
+    index_html = f.read()
+  
+  return HTMLResponse(content=index_html, status_code=200)
+
+@v1_router.get("/session")
+async def list_sessions():
+  return [session.__dict__() for session in SESSIONS]
+
+@v1_router.get("/session/{session_id}")
+async def get_session(session_id: str):
+  session = get_session_or_404(session_id)
+  return session.__dict__()
+
+@v1_router.post("/session/{session_id}/take/start")
+async def start_take(session_id: str):
+  session = get_session_or_404(session_id)
+  take = session.start_take(f"Take {len(session.takes) + 1}")
+  return take.__dict__()
+
+@v1_router.post("/session/{session_id}/take/stop")
+async def stop_take(session_id: str):
+  pass
+
+@v1_router.post("/session")
+async def create_session(payload: dict):
+  return SESSIONS.append(Session(payload['name']))
+
+@v1_router.delete("/session")
+async def delete_session(payload: dict):
+  session_id = payload['id']
+  global SESSIONS
+  SESSIONS = [s for s in SESSIONS if s.id != session_id]
+  return {"status": "deleted", "id": session_id}
 
 @v1_router.get("/devices")
 async def devices():

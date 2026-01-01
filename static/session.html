@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sessões - O Gravador Sem Cabeça</title>
+    
+    <script src="/static/js/tailwind.min.js"></script>
+    
+    <style type="text/tailwindcss">
+        @layer components {
+            .health-green { @apply text-green-400; }
+            .health-yellow { @apply text-yellow-400; }
+            .health-red { @apply text-red-500 font-bold; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 pt-20">
+
+    <nav class="fixed top-0 left-0 right-0 bg-slate-900 text-white z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <a class="text-xl font-bold tracking-tight" href="/">O Gravador Sem Cabeça</a>
+            
+            <div class="flex items-center gap-6">
+                <div id="systemHealth" class="flex items-center gap-4 border-r border-slate-700 pr-6 text-sm font-mono">
+                    <div id="stat-load" title="Carga do Sistema">
+                        <span class="text-slate-400 mr-1">📊</span><span class="value">--</span>
+                    </div>
+                    <div id="stat-mem" title="Uso de Memória">
+                        <span class="text-slate-400 mr-1">🧠</span><span class="value">--%</span>
+                    </div>
+                    <div id="stat-disk" title="Espaço em Disco">
+                        <span class="text-slate-400 mr-1">💾</span><span class="value">--%</span>
+                    </div>
+                </div>
+
+                <a href="/" class="text-sm font-medium text-slate-300 hover:text-white transition-colors">Painel Principal</a>
+                
+                <button id="btnShutdown" 
+                        onclick="shutdownSystem()"
+                        class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm text-sm">
+                    Desligar
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto px-4 py-8"> 
+        <div class="flex justify-between items-end mb-8">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-800">Gerenciar Sessões</h1>
+                <p class="text-slate-500 mt-1">Organize suas gravações em grupos nomeados.</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+            <h3 class="text-lg font-semibold mb-4 text-slate-700">Nova Sessão</h3>
+            <div class="flex items-center gap-4">
+                <input type="text" id="sessionNameInput" 
+                       placeholder="Ex: Ensaio de Sábado, Show no Pub..."
+                       class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none">
+                <button onclick="createSession()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg transition-all shadow-sm">
+                    Criar Sessão
+                </button>
+            </div>
+            <p id="statusMsg" class="mt-2 text-sm h-5 text-red-500"></p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h3 class="text-lg font-semibold text-slate-700">Sessões Existentes</h3>
+                <button onclick="loadSessions()" class="text-slate-500 hover:text-blue-600 transition-colors">
+                    <span class="text-sm font-medium">↻ Atualizar</span>
+                </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table id="sessionsTable" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50/50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome da Sessão</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Criado em</th>
+                            <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                </table>
+            </div>
+            
+            <div id="emptyState" class="hidden p-12 text-center">
+                <span class="text-4xl">📁</span>
+                <p class="mt-2 text-gray-500 font-medium">Nenhuma sessão encontrada. Crie uma para começar!</p>
+            </div>
+        </div>
+    </div> 
+
+    <script>
+        const API_BASE = '/api/v1';
+
+        // Lógica de Saúde (Igual à original)
+        async function updateHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (!response.ok) return;
+                const data = await response.json();
+                document.querySelector('#stat-load .value').textContent = data.load.toFixed(2);
+                document.querySelector('#stat-mem .value').textContent = data.mem_usage.toFixed(1) + '%';
+                document.querySelector('#stat-disk .value').textContent = data.disk_usage.toFixed(1) + '%';
+            } catch (e) {}
+        }
+        setInterval(updateHealth, 60000);
+        updateHealth();
+
+        // Gerenciamento de Sessões
+        const sessionInput = document.getElementById('sessionNameInput');
+        const tableBody = document.querySelector('#sessionsTable tbody');
+        const statusMsg = document.getElementById('statusMsg');
+        const emptyState = document.getElementById('emptyState');
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '-';
+            const date = new Date(timestamp * 1000); 
+            return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        async function loadSessions() {
+            try {
+                const res = await fetch(`${API_BASE}/session`);
+                const sessions = await res.json();
+                
+                tableBody.innerHTML = '';
+                
+                if (sessions.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    return;
+                }
+                
+                emptyState.classList.add('hidden');
+                
+                sessions.sort((a,b) => b.created_at - a.created_at).forEach(session => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-gray-50 transition-colors group";
+                    
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="/sessions?id=${session.id}" class="text-sm font-bold text-blue-600 hover:underline">
+                                ${session.name}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${formatTimestamp(session.created_at)}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <button onclick="deleteSession('${session.id}')" 
+                                    class="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-all"
+                                    title="Excluir Sessão">
+                                🗑️
+                            </button>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            } catch (e) {
+                statusMsg.textContent = 'Erro ao carregar sessões.';
+            }
+        }
+
+        async function createSession() {
+            const name = sessionInput.value.trim();
+            if (!name) {
+                statusMsg.textContent = 'Por favor, digite um nome para a sessão.';
+                return;
+            }
+            
+            statusMsg.textContent = '';
+            try {
+                const res = await fetch(`${API_BASE}/session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+                
+                if (res.ok) {
+                    sessionInput.value = '';
+                    loadSessions();
+                } else {
+                    const err = await res.json();
+                    statusMsg.textContent = err.detail || 'Erro ao criar sessão.';
+                }
+            } catch (e) {
+                statusMsg.textContent = 'Erro de conexão com o servidor.';
+            }
+        }
+
+        async function deleteSession(id) {
+            if (!confirm("Tem certeza que deseja excluir esta sessão e todas as referências às suas gravações? Os arquivos não serão apagados do disco.")) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/session`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+                
+                if (res.ok) {
+                    loadSessions();
+                }
+            } catch (e) {
+                alert('Erro ao deletar sessão.');
+            }
+        }
+
+        async function shutdownSystem() {
+            if (!confirm("Desligar o sistema agora?")) return;
+            try { await fetch(`${API_BASE}/shutdown`, { method: 'POST' }); } 
+            catch (e) { alert('Comando enviado.'); }
+        }
+
+        // Carregamento inicial
+        loadSessions();
+    </script>
+</body>
+</html>
