@@ -53,6 +53,20 @@ async function updateHealth() {
 setInterval(updateHealth, 60000);
 updateHealth();
 
+// --- Versão e informações do git ---
+async function loadAppMeta() {
+  try {
+    const meta = await api('/meta');
+    const versionEl = document.getElementById('app-version');
+    if (versionEl) versionEl.textContent = `Controle Remoto v${meta.version}`;
+    const gitInfoEl = document.getElementById('app-git-info');
+    if (gitInfoEl) {
+      const parts = [meta.branch, meta.commit, meta.tag].filter(Boolean);
+      gitInfoEl.textContent = parts.length ? parts.join(' · ') : 'sem informações do git';
+    }
+  } catch (e) { /* servidor ainda não respondeu */ }
+}
+
 // --- Desligamento ---
 async function shutdownSystem() {
   if (!confirm('Desligar o sistema agora?')) return;
@@ -97,7 +111,7 @@ function renderHeader() {
           </div>
           <div>
             <h1 class="text-xl font-bold tracking-tight text-white">O Gravador Sem Cabeça</h1>
-            <p class="text-xs text-gray-400 font-medium mt-0.5">Controle Remoto v1.0.4</p>
+            <p class="text-xs text-gray-400 font-medium mt-0.5" id="app-version">Controle Remoto v…</p>
           </div>
         </a>
 
@@ -119,6 +133,7 @@ function renderHeader() {
     </nav>`;
 
   updateHealth();
+  loadAppMeta();
 }
 
 document.addEventListener('DOMContentLoaded', renderHeader);

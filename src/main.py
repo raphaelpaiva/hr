@@ -17,6 +17,8 @@ from app.history import get_history
 
 from app.system import get_header_info
 
+from app.build_info import get_build_info
+
 from app.config import BASE_PATH
 from app.sound_system.sound_system import AlsaSoundSystem, SoundSystem, DummyAlsaSoundSystem, SoundDevice
 from app.sessions.session import Session, Take
@@ -216,6 +218,10 @@ def shutdown_system(background_tasks: BackgroundTasks):
 @v1_router.get("/health")
 def health():
   return get_header_info()
+
+@v1_router.get("/meta")
+def meta():
+  return get_build_info()
 
 app.include_router(v1_router)
 

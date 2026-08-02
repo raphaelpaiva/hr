@@ -8,6 +8,50 @@ The packages below need to be installed in your system:
 2. _python3_: Well, python! `sudo apt install -y python` (Python **3.9 or newer**)
 2. _uvicorn_: ASGI server. `sudo apt install -y uvicorn`
 
+# Versioning
+
+Releases are managed with [commitizen](https://commitizen-tools.github.io/commitizen/). The current version lives in `pyproject.toml` (`[tool.commitizen] version`) and `src/app/version.py`; the changelog is generated into `CHANGELOG.md`. Git info shown in the UI (branch, commit, tag) is generated into `src/app/git_info.py`.
+
+## Commit conventions
+
+The next version is computed from commit messages since the last tag. Use [conventional commits](https://www.conventionalcommits.org/):
+
+- `fix(...)`: patch bump (0.1.0 → 0.1.1)
+- `feat(...)`: minor bump (0.1.0 → 0.2.0)
+- `BREAKING CHANGE` footer (or `!`): major bump
+
+`chore`, `docs`, `refactor`, etc. do not trigger a release.
+
+## Releasing a new version
+
+Make sure the working tree is clean and the dev dependencies (including `commitizen`) are installed:
+
+```
+venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+```
+
+Then run:
+
+```
+./bump.sh
+```
+
+This will:
+
+1. Bump the version in `pyproject.toml` and `src/app/version.py`
+2. Update `CHANGELOG.md`
+3. Create the release commit and the `vX.Y.Z` tag
+4. Regenerate `src/app/git_info.py` (branch, commit, tag)
+5. Commit it and push everything to `origin` with `--follow-tags`
+
+To preview a release without touching git:
+
+```
+./bump.sh --dry-run
+```
+
+This updates the version files and `CHANGELOG.md` locally (so you can review the `git diff`), but skips `git add`, `git commit` and `git push`.
+
 # Tests
 
 The suite covers unit tests, the full API via `TestClient`, and offline frontend checks. It runs entirely on the `DummyAlsaSoundSystem` and a temp recordings dir — no ALSA, `ffmpeg`, network, or real hardware required (works on macOS too).

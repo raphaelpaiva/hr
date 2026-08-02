@@ -1,3 +1,5 @@
 # pytest 9 requires Python >= 3.10; keep 8.x for Python 3.9 support.
 pytest==8.4.2
 pytest-cov
+# commitizen 4.11+ requires Python >= 3.10; 4.10.0 is the last 4.x supporting 3.9.
+commitizen==4.10.0
