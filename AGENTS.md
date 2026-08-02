@@ -1,0 +1,35 @@
+# AGENTS.md
+
+Headless Recorder ("hr") — a FastAPI web app for a Raspberry Pi 3 that records audio from ALSA/USB interfaces via `arecord` + `ffmpeg`, controlled from a phone/tablet. Frontend is plain HTML + Tailwind (vendored Play build) in `static/`; no JS framework, no build step. Dark "design system" shared across all pages.
+
+**Must run offline** — the Pi acts as its own WiFi hotspot with no internet access. Any dependency on external web resources (CDNs, remote fonts, API calls) is prohibited; all assets must ship in `static/`.
+
+## Commands
+- Local dev: `./dev.sh` — creates `venv/` with virtualenv, then `fastapi dev src/main.py --host 0.0.0.0`
+- Prod (on the Pi): `./prd.sh` — `fastapi run src/main.py --port 8000 --host 0.0.0.0`; run via systemd unit `linux/systemd/hr.service`
+- Package: `./build.sh` — PyInstaller `--onefile` → `dist/hr`, then copies `static/` into `dist/`
+- Deploy: `./sync.sh` — rsync to `192.168.9.29:~/hr_work/` (excludes venv, git, recordings)
+- Install on Pi: `linux/install.sh` — sudoers shutdown permission + systemd unit
+- Tests: `venv/bin/python -m pytest` — runs the suite in `tests/` (unit + API via `TestClient` + offline frontend checks) and prints a coverage report. Dev deps in `requirements-dev.txt` (`pytest`, `pytest-cov`).
+## Architecture
+- API in `src/main.py` (FastAPI, router prefix `/api/v1`); domain logic in `src/app/`
+- `src/app/sound_system/`: `SoundSystem` base → `AlsaSoundSystem` (spawns `arecord -L` / `ffmpeg`) and `DummyAlsaSoundSystem` (fake device list + fake record/stop so the whole flow works on macOS)
+- Sessions/takes are **in-memory only** (`SESSIONS` list) — lost on restart. Recordings persist to `recordings/<id>/<id>.wav` + `recording.json`; `/api/v1/history` rebuilds them by scanning that dir
+- Frontend design system (no build step):
+  - `static/js/tailwind.config.js` — theme tokens (`ink`/`surface`/`card`/`edge`/`hover`) + Inter font family. Must be loaded **before** `static/js/tailwind.min.js` (vendored Play build).
+  - `static/css/app.css` — `@font-face` for the bundled Inter variable font, base `body`, `.card-bg`/`.input-bg`/`.border-custom`, `.glow-effect` + `@keyframes pulse-red`
+  - `static/js/app.js` — renders the shared top nav into `<header id="app-header" data-page="...">` (health pills, Sessões link, shutdown button) and exposes `api()`, `formatTimestamp()`, `formatTakeTimestamp()`, `updateHealth()`
+  - Pages: `static/index.html` (dashboard, `/`), `static/session.html` (sessions list, `/sessions`), `static/session_detail.html` (session + takes, `/sessions?id=`)
+  - Each page uses the shared assets in `<head>` + an inline page-specific `<script>`; no templating, header markup is duplicated from `app.js`
+- Session takes: `POST /api/v1/session/{id}/take/start` accepts `{"devices": [...]}` (defaults to the session's saved devices) and spawns one `Recording` per device; `take/stop` stops the active take (latest take with recordings in `RECORDING` state); `GET .../take/{take_id}/zip` streams a ZIP of the take's wavs
+
+## Gotchas
+- `src/main.py:28` hardcodes `AlsaSoundSystem()` (needs ALSA + `arecord`/`ffmpeg`). On macOS, switch the active line to `DummyAlsaSoundSystem()` (line 29) for local testing.
+- `static/` is served relative to the **cwd** (`StaticFiles(directory="static")`), and recordings go to `./recordings/`. Run the server from the repo root (and the PyInstaller binary from `dist/`).
+- The local `venv/` is broken — its python symlink points to an uninstalled Homebrew python@3.13. `./dev.sh` recreates it; system python is 3.14.
+- `linux/install.sh` has inconsistent relative paths: the sudoers step needs cwd = repo root, the `systemd/hr.service` step needs cwd = `linux/`. Also `hr.service` expects the app at `/home/<user>/hr`, while `sync.sh` copies to `~/hr_work/` — reconcile on the Pi.
+- Python sources use 2-space indentation (not PEP8). Match it.
+- **Python 3.9 is the minimum supported version** (Pi + `Dockerfile` `python:3.9-slim`). Do NOT use PEP 604 unions (`X | None`) in annotations — use `typing.Optional`/`Union`. `requirements.txt`/`requirements-dev.txt` are pinned at the 3.9 ceiling (`fastapi==0.128.8`, `uvicorn==0.39.0`, `starlette==0.49.3`, `pytest==8.4.2`); bumping them requires re-verifying on 3.9 (the local dev venv is 3.14, which won't catch a 3.10-only dep or `|` annotation).
+- `take/start` returns 400 if no devices are selected and the session has no saved devices; `take/stop` returns 400 if no take is currently recording. `Session.__dict__()` must call `take.__dict__()` (parenthesized) — a bound-method reference there silently breaks the session detail API.
+- `DummyAlsaSoundSystem` also fakes record/stop (marks states, stores recordings, no ffmpeg), so `/recordings`, sessions, and take start/stop are all testable on macOS.
+- Tests never touch real hardware or the live `recordings/` dir: `tests/conftest.py` swaps in `DummyAlsaSoundSystem`, resets `SESSIONS`/`CURRENT_RECORDINGS`, points `BASE_PATH` (in `config`, `recording`, `history`, `main`) at a temp dir, and patches `main.run` so `POST /shutdown`'s background `sudo shutdown` never fires. Note this Starlette's `TestClient.delete()` doesn't accept `json=` — use `client.request('DELETE', url, json=...)`.

@@ -7,3 +7,6 @@ recordings/
 build/
 dist/
 *.spec
+.coverage
+htmlcov/
+.pytest_cache/

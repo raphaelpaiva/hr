@@ -1,0 +1,3 @@
+# pytest 9 requires Python >= 3.10; keep 8.x for Python 3.9 support.
+pytest==8.4.2
+pytest-cov

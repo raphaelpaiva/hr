@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 import uuid
 
 from app.sound_system.sound_system import SoundDevice
@@ -12,7 +12,10 @@ class Take():
     self.index = index
     self.created_at = datetime.now()
     self.recordings: List[Recording] = []
-  
+
+  def add_recording(self, recording: Recording) -> None:
+    self.recordings.append(recording)
+
   def __dict__(self):
     return {
       "name": self.name,
@@ -30,7 +33,7 @@ class Session():
     self.devices: List[SoundDevice] = []
     self.takes: List[Take] = []
 
-  def start_take(self, take_name: str | None = None) -> Take:
+  def start_take(self, take_name: Optional[str] = None) -> Take:
     take_index = len(self.takes) + 1
     take_name = take_name or f"Take {take_index}"
     take = Take(take_name, take_index)
@@ -42,5 +45,5 @@ class Session():
       "name": self.name,
       "id": self.id,
       "created_at": self.created_at.timestamp(),
-      "takes": [take.__dict__ for take in self.takes],
+      "takes": [take.__dict__() for take in self.takes],
     }

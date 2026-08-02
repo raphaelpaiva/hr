@@ -4,158 +4,107 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sessões - O Gravador Sem Cabeça</title>
-    
+    <script src="/static/js/tailwind.config.js"></script>
     <script src="/static/js/tailwind.min.js"></script>
-    
-    <style type="text/tailwindcss">
-        @layer components {
-            .health-green { @apply text-green-400; }
-            .health-yellow { @apply text-yellow-400; }
-            .health-red { @apply text-red-500 font-bold; }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/app.js"></script>
 </head>
-<body class="bg-gray-50 text-gray-900 pt-20">
+<body class="min-h-screen flex flex-col">
 
-    <nav class="fixed top-0 left-0 right-0 bg-slate-900 text-white z-50 shadow-md">
-        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <a class="text-xl font-bold tracking-tight" href="/">O Gravador Sem Cabeça</a>
-            
-            <div class="flex items-center gap-6">
-                <div id="systemHealth" class="flex items-center gap-4 border-r border-slate-700 pr-6 text-sm font-mono">
-                    <div id="stat-load" title="Carga do Sistema">
-                        <span class="text-slate-400 mr-1">📊</span><span class="value">--</span>
-                    </div>
-                    <div id="stat-mem" title="Uso de Memória">
-                        <span class="text-slate-400 mr-1">🧠</span><span class="value">--%</span>
-                    </div>
-                    <div id="stat-disk" title="Espaço em Disco">
-                        <span class="text-slate-400 mr-1">💾</span><span class="value">--%</span>
-                    </div>
-                </div>
+    <header id="app-header" data-page="sessions"></header>
 
-                <a href="/" class="text-sm font-medium text-slate-300 hover:text-white transition-colors">Painel Principal</a>
-                
-                <button id="btnShutdown" 
-                        onclick="shutdownSystem()"
-                        class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm text-sm">
-                    Desligar
-                </button>
-            </div>
-        </div>
-    </nav>
+    <main class="flex-1 max-w-4xl mx-auto w-full px-4 md:px-6 py-8 md:py-10 flex flex-col gap-8">
 
-    <div class="max-w-4xl mx-auto px-4 py-8"> 
-        <div class="flex justify-between items-end mb-8">
-            <div>
-                <h1 class="text-3xl font-extrabold text-slate-800">Gerenciar Sessões</h1>
-                <p class="text-slate-500 mt-1">Organize suas gravações em grupos nomeados.</p>
-            </div>
+        <div class="px-2">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-white">Gerenciar Sessões</h1>
+            <p class="text-sm text-gray-500 mt-1">Organize suas gravações em grupos nomeados.</p>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-            <h3 class="text-lg font-semibold mb-4 text-slate-700">Nova Sessão</h3>
-            <div class="flex items-center gap-4">
-                <input type="text" id="sessionNameInput" 
+        <!-- Nova Sessão -->
+        <div class="card-bg rounded-3xl border border-custom p-6 md:p-8">
+            <h3 class="text-lg font-bold text-white mb-5">Nova Sessão</h3>
+            <div class="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+                <input type="text" id="sessionNameInput"
                        placeholder="Ex: Ensaio de Sábado, Show no Pub..."
-                       class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none">
-                <button onclick="createSession()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg transition-all shadow-sm">
-                    Criar Sessão
+                       class="flex-1 input-bg border border-custom rounded-xl text-gray-100 font-medium py-4 pl-5 pr-5 focus:outline-none focus:border-red-500/50 transition-colors">
+                <button onclick="createSession()" class="bg-gradient-to-b from-[#ef4444] to-[#b91c1c] hover:from-red-500 hover:to-red-700 text-white font-black py-4 px-8 rounded-full transition-all shadow-[0_0_15px_rgba(229,57,53,0.3)] text-sm tracking-widest">
+                    CRIAR SESSÃO
                 </button>
             </div>
-            <p id="statusMsg" class="mt-2 text-sm h-5 text-red-500"></p>
+            <p id="statusMsg" class="mt-3 text-sm h-5 text-red-500"></p>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                <h3 class="text-lg font-semibold text-slate-700">Sessões Existentes</h3>
-                <button onclick="loadSessions()" class="text-slate-500 hover:text-blue-600 transition-colors">
-                    <span class="text-sm font-medium">↻ Atualizar</span>
+        <!-- Sessões Existentes -->
+        <div class="card-bg rounded-3xl border border-custom overflow-hidden">
+            <div class="p-6 border-b border-custom flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">Sessões Existentes</h3>
+                <button onclick="loadSessions()" class="input-bg border border-custom hover:border-gray-500 text-gray-400 hover:text-white text-sm font-semibold py-2 px-4 rounded-full transition-colors">
+                    ↻ Atualizar
                 </button>
             </div>
-            
+
             <div class="overflow-x-auto">
-                <table id="sessionsTable" class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50/50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome da Sessão</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Criado em</th>
-                            <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
+                <table class="w-full text-left border-collapse min-w-[480px]">
+                    <thead>
+                        <tr class="border-b border-custom text-[10px] uppercase tracking-widest text-gray-500 bg-surface/50">
+                            <th class="px-6 md:px-8 py-4 font-bold">Nome da Sessão</th>
+                            <th class="px-6 py-4 font-bold">Criado em</th>
+                            <th class="px-6 md:px-8 py-4 font-bold text-center">Ações</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        </tbody>
+                    <tbody id="sessionsTable" class="text-sm font-medium text-gray-300"></tbody>
                 </table>
             </div>
-            
+
             <div id="emptyState" class="hidden p-12 text-center">
-                <span class="text-4xl">📁</span>
-                <p class="mt-2 text-gray-500 font-medium">Nenhuma sessão encontrada. Crie uma para começar!</p>
+                <div class="w-14 h-14 mx-auto rounded-full bg-card border border-custom flex items-center justify-center text-2xl">📁</div>
+                <p class="mt-4 text-gray-500 font-medium">Nenhuma sessão encontrada. Crie uma para começar!</p>
             </div>
         </div>
-    </div> 
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="py-8 text-center text-xs text-gray-500 font-medium">
+        &copy; 2023 O Gravador Sem Cabeça. Sistema operacional v2.0.
+    </footer>
 
     <script>
-        const API_BASE = '/api/v1';
-
-        // Lógica de Saúde (Igual à original)
-        async function updateHealth() {
-            try {
-                const response = await fetch(`${API_BASE}/health`);
-                if (!response.ok) return;
-                const data = await response.json();
-                document.querySelector('#stat-load .value').textContent = data.load.toFixed(2);
-                document.querySelector('#stat-mem .value').textContent = data.mem_usage.toFixed(1) + '%';
-                document.querySelector('#stat-disk .value').textContent = data.disk_usage.toFixed(1) + '%';
-            } catch (e) {}
-        }
-        setInterval(updateHealth, 60000);
-        updateHealth();
-
-        // Gerenciamento de Sessões
         const sessionInput = document.getElementById('sessionNameInput');
-        const tableBody = document.querySelector('#sessionsTable tbody');
+        const tableBody = document.querySelector('#sessionsTable');
         const statusMsg = document.getElementById('statusMsg');
         const emptyState = document.getElementById('emptyState');
 
-        function formatTimestamp(timestamp) {
-            if (!timestamp) return '-';
-            const date = new Date(timestamp * 1000); 
-            return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        }
-
         async function loadSessions() {
             try {
-                const res = await fetch(`${API_BASE}/session`);
-                const sessions = await res.json();
-                
+                const sessions = await api('/session');
+
                 tableBody.innerHTML = '';
-                
+
                 if (sessions.length === 0) {
                     emptyState.classList.remove('hidden');
                     return;
                 }
-                
+
                 emptyState.classList.add('hidden');
-                
-                sessions.sort((a,b) => b.created_at - a.created_at).forEach(session => {
+
+                sessions.slice().sort((a, b) => b.created_at - a.created_at).forEach(session => {
                     const tr = document.createElement('tr');
-                    tr.className = "hover:bg-gray-50 transition-colors group";
-                    
+                    tr.className = "border-b border-custom hover:bg-[#2a2424] transition-colors";
                     tr.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <a href="/sessions?id=${session.id}" class="text-sm font-bold text-blue-600 hover:underline">
+                        <td class="px-6 md:px-8 py-5">
+                            <a href="/sessions?id=${session.id}" class="text-sm font-bold text-red-400 hover:text-red-300 transition-colors inline-flex items-center gap-2">
+                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
                                 ${session.name}
                             </a>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td class="px-6 py-5 whitespace-nowrap text-gray-400 font-mono text-xs">
                             ${formatTimestamp(session.created_at)}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <button onclick="deleteSession('${session.id}')" 
-                                    class="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-all"
+                        <td class="px-6 md:px-8 py-5 whitespace-nowrap text-center">
+                            <button onclick="deleteSession('${session.id}')"
+                                    class="text-gray-500 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 transition-all"
                                     title="Excluir Sessão">
-                                🗑️
+                                <svg class="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             </button>
                         </td>
                     `;
@@ -172,52 +121,35 @@
                 statusMsg.textContent = 'Por favor, digite um nome para a sessão.';
                 return;
             }
-            
+
             statusMsg.textContent = '';
             try {
-                const res = await fetch(`${API_BASE}/session`, {
+                await api('/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: name })
                 });
-                
-                if (res.ok) {
-                    sessionInput.value = '';
-                    loadSessions();
-                } else {
-                    const err = await res.json();
-                    statusMsg.textContent = err.detail || 'Erro ao criar sessão.';
-                }
+                sessionInput.value = '';
+                loadSessions();
             } catch (e) {
-                statusMsg.textContent = 'Erro de conexão com o servidor.';
+                statusMsg.textContent = e.message || 'Erro ao criar sessão.';
             }
         }
 
         async function deleteSession(id) {
-            if (!confirm("Tem certeza que deseja excluir esta sessão e todas as referências às suas gravações? Os arquivos não serão apagados do disco.")) return;
-            
+            if (!confirm('Tem certeza que deseja excluir esta sessão e todas as referências às suas gravações? Os arquivos não serão apagados do disco.')) return;
             try {
-                const res = await fetch(`${API_BASE}/session`, {
+                await api('/session', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: id })
                 });
-                
-                if (res.ok) {
-                    loadSessions();
-                }
+                loadSessions();
             } catch (e) {
                 alert('Erro ao deletar sessão.');
             }
         }
 
-        async function shutdownSystem() {
-            if (!confirm("Desligar o sistema agora?")) return;
-            try { await fetch(`${API_BASE}/shutdown`, { method: 'POST' }); } 
-            catch (e) { alert('Comando enviado.'); }
-        }
-
-        // Carregamento inicial
         loadSessions();
     </script>
 </body>

@@ -117,3 +117,10 @@ dsnoop:CARD=CODEC,DEV=0
     Direct sample snooping device
 '''
     return self.parse_arecord_L(TEST_STRING)
+
+  def start_recording(self, recording: Recording) -> None:
+    self.recordings[recording.id] = recording
+    recording.mark_started()
+
+  def stop_recording(self, recording: Recording) -> None:
+    recording.mark_stopped()

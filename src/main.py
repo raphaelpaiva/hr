@@ -1,15 +1,18 @@
 import datetime
+import io
+import re
+import zipfile
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 from time import sleep
 from fastapi import FastAPI, APIRouter, BackgroundTasks, HTTPException
 from subprocess import run
 
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app.sound_system.recording import Recording
+from app.sound_system.recording import Recording, RecordState
 from app.history import get_history
 
 from app.system import get_header_info
@@ -27,7 +30,7 @@ SOUND_SYSTEM: SoundSystem = AlsaSoundSystem()
 CURRENT_RECORDINGS: Dict[str, Recording] = {}
 SESSIONS: List[Session] = []
 
-def find_session_by_id(session_id: str) -> Session | None:
+def find_session_by_id(session_id: str) -> Optional[Session]:
   return next((s for s in SESSIONS if s.id == session_id), None)
 
 def get_session_or_404(session_id: str) -> Session:
@@ -35,6 +38,18 @@ def get_session_or_404(session_id: str) -> Session:
   if not session:
     raise HTTPException(status_code=404, detail="Session not found")
   return session
+
+def get_take_or_404(session: Session, take_id: str) -> Take:
+  take = next((t for t in session.takes if t.id == take_id), None)
+  if not take:
+    raise HTTPException(status_code=404, detail="Take not found")
+  return take
+
+def get_active_take(session: Session) -> Optional[Take]:
+  for take in reversed(session.takes):
+    if any(rec.state == RecordState.RECORDING for rec in take.recordings):
+      return take
+  return None
 
 class RecordResponse(BaseModel):
   id: str
@@ -61,7 +76,7 @@ async def root():
   return HTMLResponse(content=index_html, status_code=200)
 
 @app.get("/sessions")
-async def sessions(id: str | None = None):
+async def sessions(id: Optional[str] = None):
   if id:
     with open("static/session_detail.html", "r") as f:
       index_html = f.read()
@@ -83,14 +98,56 @@ async def get_session(session_id: str):
   return session.__dict__()
 
 @v1_router.post("/session/{session_id}/take/start")
-async def start_take(session_id: str):
+async def start_take(session_id: str, payload: Optional[dict] = None):
   session = get_session_or_404(session_id)
+  devices = (payload or {}).get('devices') or session.devices
+  if not devices:
+    raise HTTPException(status_code=400, detail="No devices selected")
   take = session.start_take(f"Take {len(session.takes) + 1}")
+  for device_name in devices:
+    rec = Recording(device_name)
+    SOUND_SYSTEM.start_recording(rec)
+    take.add_recording(rec)
+  session.devices = devices
   return take.__dict__()
 
 @v1_router.post("/session/{session_id}/take/stop")
 async def stop_take(session_id: str):
-  pass
+  session = get_session_or_404(session_id)
+  take = get_active_take(session)
+  if not take:
+    raise HTTPException(status_code=400, detail="No active take")
+  for rec in take.recordings:
+    if rec.state == RecordState.RECORDING:
+      SOUND_SYSTEM.stop_recording(rec)
+  return take.__dict__()
+
+@v1_router.get("/session/{session_id}/take/{take_id}/zip")
+async def take_zip(session_id: str, take_id: str):
+  session = get_session_or_404(session_id)
+  take = get_take_or_404(session, take_id)
+  buffer = io.BytesIO()
+  with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+    for rec in take.recordings:
+      if rec.output_path.exists():
+        safe_name = re.sub(r'[^A-Za-z0-9_.-]+', '_', rec.device_name)
+        zf.write(rec.output_path, f"{safe_name}_{rec.id[:8]}.wav")
+  buffer.seek(0)
+  filename = f"take_{take.index:03d}.zip"
+  return StreamingResponse(
+    buffer,
+    media_type="application/zip",
+    headers={"Content-Disposition": f"attachment; filename={filename}"},
+  )
+
+@v1_router.post("/session/{session_id}/rename")
+async def rename_session(session_id: str, payload: dict):
+  session = get_session_or_404(session_id)
+  name = (payload.get('name') or '').strip()
+  if not name:
+    raise HTTPException(status_code=400, detail="Name is required")
+  session.name = name
+  return session.__dict__()
 
 @v1_router.post("/session")
 async def create_session(payload: dict):
