@@ -82,15 +82,15 @@ function renderHeader() {
 
   const pills = `
     <div class="flex bg-card rounded-full border border-custom overflow-hidden text-xs font-mono font-medium text-gray-300">
-      <div class="px-4 py-2 border-r border-custom flex items-center gap-2" id="stat-load" title="Carga do Sistema">
+      <div class="px-3 py-2 md:px-4 md:py-2 border-r border-custom flex items-center gap-2" id="stat-load" title="Carga do Sistema">
         <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
         <span class="value font-semibold text-gray-300">--</span>
       </div>
-      <div class="px-4 py-2 border-r border-custom flex items-center gap-2" id="stat-mem" title="Uso de Memória">
+      <div class="px-3 py-2 md:px-4 md:py-2 border-r border-custom flex items-center gap-2" id="stat-mem" title="Uso de Memória">
         <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
         <span class="value font-semibold text-gray-300">--%</span>
       </div>
-      <div class="px-4 py-2 flex items-center gap-2" id="stat-disk" title="Espaço em Disco">
+      <div class="px-3 py-2 md:px-4 md:py-2 flex items-center gap-2" id="stat-disk" title="Espaço em Disco">
         <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
         <span class="value font-semibold text-gray-300">--%</span>
       </div>
@@ -102,33 +102,43 @@ function renderHeader() {
 
   header.innerHTML = `
     <nav class="border-b border-custom bg-surface">
-      <div class="max-w-7xl mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
-        <a href="/" class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
-            </svg>
+      <div class="max-w-7xl mx-auto px-4 md:px-6">
+        <div class="h-20 flex items-center justify-between gap-3 md:gap-6">
+          <a href="/" class="flex items-center gap-3 md:gap-4 min-w-0">
+            <div class="w-10 h-10 md:w-12 md:h-12 shrink-0 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+              <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <h1 class="text-lg md:text-xl font-bold tracking-tight text-white truncate">O Gravador Sem Cabeça</h1>
+              <p class="text-[11px] md:text-xs text-gray-400 font-medium mt-0.5 truncate" id="app-version">Controle Remoto v…</p>
+            </div>
+          </a>
+
+          <div class="hidden lg:flex items-center gap-6 ml-6 shrink-0">
+            ${links}
+          </div>
+
+          <div class="flex items-center gap-2 md:gap-4 shrink-0">
+            <div class="hidden lg:flex">
+              ${pills}
+            </div>
+            <button onclick="shutdownSystem()" class="bg-[#e53935] hover:bg-red-500 text-white font-semibold py-2 px-3 md:px-5 rounded-full text-sm transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(229,57,53,0.3)]" title="Desligar Sistema">
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+              <span class="hidden sm:inline">Desligar Sistema</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="lg:hidden flex flex-col gap-3 pb-4">
+          <div class="flex items-center gap-6 px-1">
+            ${links}
           </div>
           <div>
-            <h1 class="text-xl font-bold tracking-tight text-white">O Gravador Sem Cabeça</h1>
-            <p class="text-xs text-gray-400 font-medium mt-0.5" id="app-version">Controle Remoto v…</p>
+            ${pills}
           </div>
-        </a>
-
-        <div class="hidden lg:flex items-center gap-6 ml-6">
-          ${links}
         </div>
-
-        <div class="flex items-center gap-4">
-          ${pills}
-          <button onclick="shutdownSystem()" class="bg-[#e53935] hover:bg-red-500 text-white font-semibold py-2 px-5 rounded-full text-sm transition-colors flex items-center gap-2 ml-2 shadow-[0_0_15px_rgba(229,57,53,0.3)]">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-            Desligar Sistema
-          </button>
-        </div>
-      </div>
-      <div class="lg:hidden flex items-center gap-6 px-6 pb-3">
-        ${links}
       </div>
     </nav>`;
 

@@ -41,7 +41,7 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                 </div>
-                <button id="btnRecord" class="bg-gradient-to-b from-[#ef4444] to-[#b91c1c] hover:from-red-500 hover:to-red-700 text-white font-black py-4 px-8 rounded-full transition-all shadow-[0_0_15px_rgba(229,57,53,0.3)] text-sm tracking-widest">
+                <button id="btnRecord" class="bg-gradient-to-b from-[#ef4444] to-[#b91c1c] hover:from-red-500 hover:to-red-700 text-white font-black py-4 px-8 rounded-full transition-all shadow-[0_0_15px_rgba(229,57,53,0.3)] text-sm tracking-widest w-full md:w-auto">
                     INICIAR GRAVAÇÃO
                 </button>
             </div>
@@ -66,7 +66,7 @@
                     ↻ Atualizar
                 </button>
             </div>
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto hidden md:block">
                 <table class="w-full text-left border-collapse min-w-[640px]">
                     <thead>
                         <tr class="border-y border-custom text-[10px] uppercase tracking-widest text-gray-500 bg-surface/50">
@@ -80,6 +80,7 @@
                     <tbody id="recordingsTable" class="text-sm font-medium text-gray-300"></tbody>
                 </table>
             </div>
+            <div id="recordingsCards" class="md:hidden flex flex-col gap-3 p-4 md:p-6"></div>
         </div>
 
         <!-- Histórico -->
@@ -93,7 +94,7 @@
                     ↻ Atualizar
                 </button>
             </div>
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto hidden md:block">
                 <table class="w-full text-left border-collapse min-w-[640px]">
                     <thead>
                         <tr class="border-y border-custom text-[10px] uppercase tracking-widest text-gray-500 bg-surface/50">
@@ -107,6 +108,7 @@
                     <tbody id="historyTable" class="text-sm font-medium text-gray-300"></tbody>
                 </table>
             </div>
+            <div id="historyCards" class="md:hidden flex flex-col gap-3 p-4 md:p-6"></div>
         </div>
     </main>
 
@@ -124,6 +126,8 @@
         const lastRecordResult = document.getElementById('lastRecordResult');
         const tableBodyRecordings = document.querySelector('#recordingsTable');
         const tableBodyHistory = document.querySelector('#historyTable');
+        const cardsRecordings = document.querySelector('#recordingsCards');
+        const cardsHistory = document.querySelector('#historyCards');
         const showAllCheckbox = document.getElementById('showAllDevices');
 
         const STATE_ICONS = {
@@ -235,12 +239,59 @@
             return tr;
         }
 
+        function createRecordCard(rec, isHistory = false) {
+            const card = document.createElement('div');
+            card.className = 'bg-surface border border-custom rounded-2xl p-4 flex flex-col gap-3';
+
+            const header = document.createElement('div');
+            header.className = 'flex items-start justify-between gap-3';
+            header.innerHTML = `
+                <div class="min-w-0">
+                    <div class="font-medium text-white truncate">${rec.device_name}</div>
+                    <div class="font-mono text-gray-500 text-xs mt-0.5">${rec.id.substring(0, 8)}</div>
+                </div>
+                <div class="text-lg leading-none shrink-0">${STATE_ICONS[rec.state] || rec.state}</div>`;
+            card.appendChild(header);
+
+            const meta = document.createElement('div');
+            meta.className = 'text-gray-400 font-mono text-xs';
+            meta.textContent = formatTimestamp(isHistory ? rec.last_modification : rec.created_at);
+            card.appendChild(meta);
+
+            const actions = document.createElement('div');
+            actions.className = 'flex items-center gap-2';
+            const link = document.createElement('a');
+            link.href = `/api/v1/result/${rec.id}`;
+            link.className = 'w-9 h-9 flex items-center justify-center bg-card text-cyan-400 rounded-lg border border-custom hover:border-cyan-500 transition-colors';
+            link.innerHTML = '⤓';
+            actions.appendChild(link);
+
+            if (!isHistory) {
+                const btnStop = document.createElement('button');
+                btnStop.innerHTML = '⏹';
+                if (rec.state === 'recording') {
+                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-card text-red-500 rounded-lg border border-custom hover:border-red-500 transition-colors';
+                    btnStop.onclick = () => stopRecording(rec.id);
+                } else {
+                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-card text-gray-600 rounded-lg border border-custom cursor-not-allowed';
+                }
+                actions.appendChild(btnStop);
+            }
+            card.appendChild(actions);
+
+            return card;
+        }
+
         async function loadRecordings() {
             try {
                 const data = await api('/recordings');
                 const list = data.recordings || data;
                 tableBodyRecordings.innerHTML = '';
-                list.sort((a, b) => b.created_at - a.created_at).forEach(r => tableBodyRecordings.appendChild(createTableRow(r, false)));
+                cardsRecordings.innerHTML = '';
+                list.sort((a, b) => b.created_at - a.created_at).forEach(r => {
+                    tableBodyRecordings.appendChild(createTableRow(r, false));
+                    cardsRecordings.appendChild(createRecordCard(r, false));
+                });
             } catch (e) {}
         }
 
@@ -249,7 +300,11 @@
                 const data = await api('/history');
                 const list = data.history || data;
                 tableBodyHistory.innerHTML = '';
-                list.sort((a, b) => b.created_at - a.created_at).forEach(r => tableBodyHistory.appendChild(createTableRow(r, true)));
+                cardsHistory.innerHTML = '';
+                list.sort((a, b) => b.created_at - a.created_at).forEach(r => {
+                    tableBodyHistory.appendChild(createTableRow(r, true));
+                    cardsHistory.appendChild(createRecordCard(r, true));
+                });
             } catch (e) {}
         }
 
@@ -262,6 +317,11 @@
             loadRecordings();
             loadHistory();
         }
+
+        window.matchMedia('(min-width: 768px)').addEventListener('change', () => {
+            loadRecordings();
+            loadHistory();
+        });
 
         loadDevices();
         loadRecordings();

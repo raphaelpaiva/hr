@@ -87,7 +87,7 @@
         <!-- Cartão Inferior: Histórico de Tomadas -->
         <div>
             <!-- Cabeçalho da Lista -->
-            <div class="flex items-center justify-between mb-4 px-2">
+            <div class="flex items-center justify-between gap-2 flex-wrap mb-4 px-2">
                 <div class="flex items-center gap-3">
                     <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     <h2 class="text-xl font-bold text-white">Tomadas Recentes</h2>
@@ -98,20 +98,23 @@
             </div>
 
             <!-- Tabela -->
-            <div class="card-bg border border-custom rounded-3xl overflow-x-auto">
-                <table class="w-full text-left border-collapse min-w-[640px]">
-                    <thead>
-                        <tr class="border-b border-custom text-[10px] uppercase tracking-widest text-gray-500">
-                            <th class="px-6 md:px-8 py-5 font-bold w-24"># Index</th>
-                            <th class="px-6 py-5 font-bold">Nome da Tomada</th>
-                            <th class="px-6 py-5 font-bold">Dispositivos</th>
-                            <th class="px-6 py-5 font-bold">Data/Hora</th>
-                            <th class="px-6 md:px-8 py-5 font-bold text-right">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="takesBody" class="text-sm font-medium text-gray-300">
-                    </tbody>
-                </table>
+            <div class="card-bg border border-custom rounded-3xl overflow-hidden">
+                <div class="overflow-x-auto hidden md:block">
+                    <table class="w-full text-left border-collapse min-w-[640px]">
+                        <thead>
+                            <tr class="border-b border-custom text-[10px] uppercase tracking-widest text-gray-500">
+                                <th class="px-6 md:px-8 py-5 font-bold w-24"># Index</th>
+                                <th class="px-6 py-5 font-bold">Nome da Tomada</th>
+                                <th class="px-6 py-5 font-bold">Dispositivos</th>
+                                <th class="px-6 py-5 font-bold">Data/Hora</th>
+                                <th class="px-6 md:px-8 py-5 font-bold text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="takesBody" class="text-sm font-medium text-gray-300">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="takesCards" class="md:hidden flex flex-col gap-3 p-4 md:p-6"></div>
 
                 <!-- Footer da Tabela -->
                 <div class="border-t border-custom px-6 py-4 flex justify-center bg-surface/50">
@@ -161,6 +164,7 @@
             recLabel: document.getElementById('recLabel'),
             recHint: document.getElementById('recHint'),
             takesBody: document.getElementById('takesBody'),
+            takesCards: document.getElementById('takesCards'),
             takeCount: document.getElementById('takeCount'),
         };
 
@@ -235,9 +239,37 @@
             }
         }
 
+        function createTakeCard(take, index) {
+            const channels = (take.recordings || []).length;
+            const zipUrl = `/api/v1/session/${sessionId}/take/${take.id}/zip`;
+
+            const card = document.createElement('div');
+            card.className = 'bg-surface border border-custom rounded-2xl p-4';
+            card.innerHTML = `
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="font-mono text-gray-500 text-xs">${String(index).padStart(3, '0')}</div>
+                        <div class="text-white font-semibold truncate mt-0.5">${take.name}</div>
+                    </div>
+                    <div class="text-gray-400 flex items-center gap-2 text-xs shrink-0 mt-0.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                        <span>${channels} ${channels === 1 ? 'Canal' : 'Canais'}</span>
+                    </div>
+                </div>
+                <div class="mt-3 text-gray-400 font-mono text-xs">${formatTakeTimestamp(take.created_at)}</div>
+                <div class="mt-3">
+                    <a href="${zipUrl}" class="input-bg border border-custom hover:border-gray-500 text-gray-300 px-4 py-2 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Baixar (ZIP)
+                    </a>
+                </div>`;
+            return card;
+        }
+
         function renderTakes(takes) {
             el.takeCount.textContent = `Sessão Atual: ${takes.length} ${takes.length === 1 ? 'Tomada' : 'Tomadas'}`;
             el.takesBody.innerHTML = '';
+            el.takesCards.innerHTML = '';
 
             if (!takes.length) {
                 el.takesBody.innerHTML = `
@@ -246,6 +278,10 @@
                             Nenhuma tomada gravada ainda. Pressione GRAVAR para começar.
                         </td>
                     </tr>`;
+                const emptyCard = document.createElement('div');
+                emptyCard.className = 'p-6 text-center text-gray-500';
+                emptyCard.textContent = 'Nenhuma tomada gravada ainda. Pressione GRAVAR para começar.';
+                el.takesCards.appendChild(emptyCard);
                 return;
             }
 
@@ -272,6 +308,7 @@
                         </a>
                     </td>`;
                 el.takesBody.appendChild(tr);
+                el.takesCards.appendChild(createTakeCard(take, take.index));
             });
         }
 
@@ -381,6 +418,10 @@
         });
 
         // --- Inicialização ---
+        window.matchMedia('(min-width: 768px)').addEventListener('change', () => {
+            if (sessionData) renderTakes(sessionData.takes || []);
+        });
+
         loadDevices();
         loadSession();
     </script>

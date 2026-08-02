@@ -27,7 +27,7 @@
                 <input type="text" id="sessionNameInput"
                        placeholder="Ex: Ensaio de Sábado, Show no Pub..."
                        class="flex-1 input-bg border border-custom rounded-xl text-gray-100 font-medium py-4 pl-5 pr-5 focus:outline-none focus:border-red-500/50 transition-colors">
-                <button onclick="createSession()" class="bg-gradient-to-b from-[#ef4444] to-[#b91c1c] hover:from-red-500 hover:to-red-700 text-white font-black py-4 px-8 rounded-full transition-all shadow-[0_0_15px_rgba(229,57,53,0.3)] text-sm tracking-widest">
+                <button onclick="createSession()" class="bg-gradient-to-b from-[#ef4444] to-[#b91c1c] hover:from-red-500 hover:to-red-700 text-white font-black py-4 px-8 rounded-full transition-all shadow-[0_0_15px_rgba(229,57,53,0.3)] text-sm tracking-widest w-full md:w-auto">
                     CRIAR SESSÃO
                 </button>
             </div>
@@ -43,7 +43,7 @@
                 </button>
             </div>
 
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto hidden md:block">
                 <table class="w-full text-left border-collapse min-w-[480px]">
                     <thead>
                         <tr class="border-b border-custom text-[10px] uppercase tracking-widest text-gray-500 bg-surface/50">
@@ -55,6 +55,7 @@
                     <tbody id="sessionsTable" class="text-sm font-medium text-gray-300"></tbody>
                 </table>
             </div>
+            <div id="sessionsCards" class="md:hidden flex flex-col gap-3 p-4"></div>
 
             <div id="emptyState" class="hidden p-12 text-center">
                 <div class="w-14 h-14 mx-auto rounded-full bg-card border border-custom flex items-center justify-center text-2xl">📁</div>
@@ -71,14 +72,35 @@
     <script>
         const sessionInput = document.getElementById('sessionNameInput');
         const tableBody = document.querySelector('#sessionsTable');
+        const cardsContainer = document.querySelector('#sessionsCards');
         const statusMsg = document.getElementById('statusMsg');
         const emptyState = document.getElementById('emptyState');
+
+        function createSessionCard(session) {
+            const card = document.createElement('div');
+            card.className = 'bg-surface border border-custom rounded-2xl p-4';
+            card.innerHTML = `
+                <div class="flex items-center justify-between gap-3">
+                    <a href="/sessions?id=${session.id}" class="min-w-0 inline-flex items-center gap-2 text-sm font-bold text-red-400 hover:text-red-300 transition-colors">
+                        <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                        <span class="truncate">${session.name}</span>
+                    </a>
+                    <button onclick="deleteSession('${session.id}')"
+                            class="text-gray-500 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 transition-all shrink-0"
+                            title="Excluir Sessão">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
+                <div class="mt-3 text-gray-400 font-mono text-xs">${formatTimestamp(session.created_at)}</div>`;
+            return card;
+        }
 
         async function loadSessions() {
             try {
                 const sessions = await api('/session');
 
                 tableBody.innerHTML = '';
+                cardsContainer.innerHTML = '';
 
                 if (sessions.length === 0) {
                     emptyState.classList.remove('hidden');
@@ -109,6 +131,7 @@
                         </td>
                     `;
                     tableBody.appendChild(tr);
+                    cardsContainer.appendChild(createSessionCard(session));
                 });
             } catch (e) {
                 statusMsg.textContent = 'Erro ao carregar sessões.';
@@ -149,6 +172,8 @@
                 alert('Erro ao deletar sessão.');
             }
         }
+
+        window.matchMedia('(min-width: 768px)').addEventListener('change', loadSessions);
 
         loadSessions();
     </script>
