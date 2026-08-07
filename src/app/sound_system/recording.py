@@ -1,10 +1,11 @@
 from enum import Enum
+import shutil
 import uuid
 import json
 
 from pathlib import Path
 from subprocess import PIPE, Popen
-from typing import List, Union
+from typing import List, Optional, Union
 
 from ..config import BASE_PATH
 from datetime import datetime
@@ -16,7 +17,7 @@ class RecordState(Enum):
   ERROR     = "error"
 
 class Recording():
-  def __init__(self, device_name: Union[str, None] = None, from_dict: Union[dict, None] = None):
+  def __init__(self, device_name: Union[str, None] = None, session_id: Union[str, None] = None, take_id: Union[str, None] = None, from_dict: Union[dict, None] = None):
     if device_name is None and from_dict is None:
       raise ValueError("Either device_name or from_dict must be provided.")
     elif device_name is not None and from_dict is None:
@@ -26,6 +27,8 @@ class Recording():
       
       self.id: str          = uuid.uuid4().hex
       self.device_name: str = device_name
+      self.session_id: Optional[str] = session_id
+      self.take_id: Optional[str] = take_id
       
       self.base_dir = Path(f"{BASE_PATH}/{self.id}")
       
@@ -37,6 +40,8 @@ class Recording():
     elif from_dict is not None:
       self.id = from_dict['id']
       self.device_name = from_dict['device_name']
+      self.session_id = from_dict.get('session_id')
+      self.take_id = from_dict.get('take_id')
       self.created_at = datetime.fromtimestamp(from_dict.get('created_at', 0.0))
 
       if 'last_modification' not in from_dict:
@@ -78,10 +83,27 @@ class Recording():
     self._mark_modified()
     self.json_path.write_text(json.dumps(self.__dict__()))
 
+  def refresh_state_from_disk(self) -> None:
+    if not self.json_path.exists():
+      return
+    try:
+      data = json.loads(self.json_path.read_text())
+      self.state = RecordState(data['state'])
+      self.error_code = data.get('error_code')
+      if 'last_modification' in data:
+        self.last_modification = datetime.fromtimestamp(data['last_modification'])
+    except (KeyError, ValueError) as e:
+      print(f"Failed to refresh recording state from {self.json_path}: {e}")
+
+  def remove_files(self) -> None:
+    shutil.rmtree(self.base_dir, ignore_errors=True)
+
   def __dict__(self):
     return {
       "id": self.id,
       "device_name": self.device_name,
+      "session_id": self.session_id,
+      "take_id": self.take_id,
       "created_at": self.created_at.timestamp(),
       "last_modification": self.last_modification.timestamp(),
       "state": self.state.value,

@@ -2,6 +2,7 @@ import datetime
 import io
 import re
 import zipfile
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Dict, List, Optional
 from time import sleep
@@ -22,8 +23,16 @@ from app.build_info import get_build_info
 from app.config import BASE_PATH
 from app.sound_system.sound_system import AlsaSoundSystem, SoundSystem, DummyAlsaSoundSystem, SoundDevice
 from app.sessions.session import Session, Take
+from app.sessions.store import delete_session as delete_session_store
+from app.sessions.store import get_sessions, save_session
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+  global SESSIONS
+  SESSIONS = get_sessions()
+  yield
+
+app = FastAPI(lifespan=lifespan)
 v1_router = APIRouter(prefix="/api/v1", tags=["v1"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -107,10 +116,11 @@ async def start_take(session_id: str, payload: Optional[dict] = None):
     raise HTTPException(status_code=400, detail="No devices selected")
   take = session.start_take(f"Take {len(session.takes) + 1}")
   for device_name in devices:
-    rec = Recording(device_name)
+    rec = Recording(device_name, session_id=session.id, take_id=take.id)
     SOUND_SYSTEM.start_recording(rec)
     take.add_recording(rec)
   session.devices = devices
+  save_session(session)
   return take.__dict__()
 
 @v1_router.post("/session/{session_id}/take/stop")
@@ -122,6 +132,7 @@ async def stop_take(session_id: str):
   for rec in take.recordings:
     if rec.state == RecordState.RECORDING:
       SOUND_SYSTEM.stop_recording(rec)
+  save_session(session)
   return take.__dict__()
 
 @v1_router.get("/session/{session_id}/take/{take_id}/zip")
@@ -149,17 +160,24 @@ async def rename_session(session_id: str, payload: dict):
   if not name:
     raise HTTPException(status_code=400, detail="Name is required")
   session.name = name
+  save_session(session)
   return session.__dict__()
 
 @v1_router.post("/session")
 async def create_session(payload: dict):
-  return SESSIONS.append(Session(payload['name']))
+  session = Session(payload['name'])
+  SESSIONS.append(session)
+  save_session(session)
+  return session.__dict__()
 
 @v1_router.delete("/session")
 async def delete_session(payload: dict):
   session_id = payload['id']
   global SESSIONS
+  session = find_session_by_id(session_id)
   SESSIONS = [s for s in SESSIONS if s.id != session_id]
+  if session:
+    delete_session_store(session)
   return {"status": "deleted", "id": session_id}
 
 @v1_router.get("/devices")

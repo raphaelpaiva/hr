@@ -1,6 +1,7 @@
 __pycache__/
 venv/
 recordings/
+/sessions/
 .env
 *.pyc
 .DS_Store

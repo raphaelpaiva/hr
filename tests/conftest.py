@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 import app.config
 import app.history
 import app.sound_system.recording
+import app.sessions.store
 import main
 from app.sound_system.sound_system import DummyAlsaSoundSystem
 
@@ -17,6 +18,8 @@ def tmp_recordings(tmp_path, monkeypatch):
   monkeypatch.setattr(app.sound_system.recording, 'BASE_PATH', str(tmp_path))
   monkeypatch.setattr(app.history, 'RECORDINGS_PATH', tmp_path)
   monkeypatch.setattr(main, 'BASE_PATH', str(tmp_path))
+  monkeypatch.setattr(app.config, 'SESSIONS_PATH', str(tmp_path / 'sessions'))
+  monkeypatch.setattr(app.sessions.store, 'SESSIONS_DIR', tmp_path / 'sessions')
   return tmp_path
 
 

@@ -59,6 +59,23 @@ def test_delete_session(client):
   assert client.get('/api/v1/session').json() == []
 
 
+def test_sessions_survive_restart(client):
+  import main
+  from app.sessions.store import get_sessions
+
+  sid = create_session(client)
+  take = client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]}).json()
+  client.post(f'/api/v1/session/{sid}/take/stop')
+
+  main.SESSIONS = []
+  main.SESSIONS = get_sessions()
+
+  sessions = client.get('/api/v1/session').json()
+  assert [s['id'] for s in sessions] == [sid]
+  assert sessions[0]['takes'][0]['id'] == take['id']
+  assert sessions[0]['takes'][0]['recordings'][0]['state'] == 'stopped'
+
+
 # --- Takes ---
 
 def test_start_take_with_devices(client):
