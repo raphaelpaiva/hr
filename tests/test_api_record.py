@@ -18,36 +18,64 @@ def test_health(client):
   assert set(data.keys()) == {'load', 'mem_usage', 'disk_usage'}
 
 
-# --- Single-device record flow ---
+# --- Quick record (anonymous session) flow ---
 
-def test_record_starts_recording(client):
-  res = client.post('/api/v1/record', json={'device': DEVICE})
+def test_quick_start_creates_anonymous_session_and_records(client):
+  res = client.post('/api/v1/quick/start', json={'devices': [DEVICE]})
   assert res.status_code == 200
   data = res.json()
-  assert data['device_name'] == DEVICE
-  assert data['state'] == 'recording'
-  assert data['id']
+  assert data['session_id']
+  take = data['take']
+  assert take['index'] == 1
+  assert take['name'] == 'Take 1'
+  assert len(take['recordings']) == 1
+  assert take['recordings'][0]['device_name'] == DEVICE
+  assert take['recordings'][0]['state'] == 'recording'
+
+  sessions = client.get('/api/v1/session').json()
+  assert [s['id'] for s in sessions] == [data['session_id']]
+  assert sessions[0]['name'].startswith('Anônima ')
 
 
-def test_recordings_lists_active_recordings(client):
-  rec = client.post('/api/v1/record', json={'device': DEVICE}).json()
-  recordings = client.get('/api/v1/recordings').json()['recordings']
-  assert recordings[0]['id'] == rec['id']
-  assert recordings[0]['state'] == 'recording'
+def test_quick_start_400_without_devices(client):
+  res = client.post('/api/v1/quick/start', json={})
+  assert res.status_code == 400
+  assert res.json()['detail'] == 'No devices selected'
 
 
-def test_stop_recording(client):
-  rec = client.post('/api/v1/record', json={'device': DEVICE}).json()
-  res = client.post('/api/v1/stop', json={'id': rec['id']})
+def test_quick_start_then_stop_flows_through_session(client):
+  data = client.post('/api/v1/quick/start', json={'devices': [DEVICE]}).json()
+  sid = data['session_id']
+  take_id = data['take']['id']
+
+  res = client.post(f'/api/v1/session/{sid}/take/stop')
   assert res.status_code == 200
-  assert res.json()['status'] == 'stopped'
-  recordings = client.get('/api/v1/recordings').json()['recordings']
-  assert recordings[0]['state'] == 'stopped'
+  assert res.json()['id'] == take_id
+  assert all(r['state'] == 'stopped' for r in res.json()['recordings'])
+
+  detail = client.get(f'/api/v1/session/{sid}').json()
+  assert detail['takes'][0]['recordings'][0]['state'] == 'stopped'
 
 
-def test_stop_recording_404(client):
-  res = client.post('/api/v1/stop', json={'id': 'unknown'})
-  assert res.status_code == 404
+def test_quick_start_persists_anonymous_session(client, tmp_recordings):
+  from app.sessions.store import get_sessions
+  data = client.post('/api/v1/quick/start', json={'devices': [DEVICE]}).json()
+  client.post(f"/api/v1/session/{data['session_id']}/take/stop")
+
+  loaded = get_sessions()
+  assert len(loaded) == 1
+  assert loaded[0].id == data['session_id']
+  assert loaded[0].takes[0].recordings[0].state.value == 'stopped'
+
+
+def test_history_lists_sessions(client):
+  assert client.get('/api/v1/history').json() == {'history': []}
+
+  data = client.post('/api/v1/quick/start', json={'devices': [DEVICE]}).json()
+  history = client.get('/api/v1/history').json()['history']
+  assert len(history) == 1
+  assert history[0]['id'] == data['session_id']
+  assert len(history[0]['takes']) == 1
 
 
 # --- Result file ---
@@ -57,8 +85,8 @@ def test_result_404_when_file_missing(client, tmp_recordings):
 
 
 def test_result_serves_wav(client, tmp_recordings):
-  rec = client.post('/api/v1/record', json={'device': DEVICE}).json()
-  rec_id = rec['id']
+  data = client.post('/api/v1/quick/start', json={'devices': [DEVICE]}).json()
+  rec_id = data['take']['recordings'][0]['id']
   wav = tmp_recordings / rec_id / f'{rec_id}.wav'
   wav.parent.mkdir(parents=True, exist_ok=True)
   wav.write_bytes(b'RIFF-fake-wav')
@@ -82,6 +110,7 @@ def test_root_serves_dashboard(client):
   res = client.get('/')
   assert res.status_code == 200
   assert 'Painel de Controle' in res.text
+  assert 'Gravação Rápida' in res.text
 
 
 def test_sessions_page_served(client):

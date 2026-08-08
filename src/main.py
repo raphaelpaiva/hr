@@ -4,17 +4,15 @@ import re
 import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 from time import sleep
 from fastapi import FastAPI, APIRouter, BackgroundTasks, HTTPException
 from subprocess import run
 
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 
 from app.sound_system.recording import Recording, RecordState
-from app.history import get_history
 
 from app.system import get_header_info
 
@@ -38,7 +36,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 SOUND_SYSTEM: SoundSystem = AlsaSoundSystem()
 # SOUND_SYSTEM: SoundSystem = DummyAlsaSoundSystem()
-CURRENT_RECORDINGS: Dict[str, Recording] = {}
 SESSIONS: List[Session] = []
 
 def find_session_by_id(session_id: str) -> Optional[Session]:
@@ -61,23 +58,6 @@ def get_active_take(session: Session) -> Optional[Take]:
     if any(rec.state == RecordState.RECORDING for rec in take.recordings):
       return take
   return None
-
-class RecordResponse(BaseModel):
-  id: str
-  device_name: str
-  state: str
-  created_at: datetime.datetime
-  last_modification: datetime.datetime
-
-  def __init__(self, rec: Recording):
-    super().__init__(
-      id=rec.id,
-      device_name=rec.device_name,
-      state=rec.state.value,
-      error_code=rec.error_code,
-      created_at=rec.created_at,
-      last_modification=rec.last_modification,
-    )
 
 @app.get("/")
 async def root():
@@ -108,12 +88,7 @@ async def get_session(session_id: str):
   session = get_session_or_404(session_id)
   return session.__dict__()
 
-@v1_router.post("/session/{session_id}/take/start")
-async def start_take(session_id: str, payload: Optional[dict] = None):
-  session = get_session_or_404(session_id)
-  devices = (payload or {}).get('devices') or session.devices
-  if not devices:
-    raise HTTPException(status_code=400, detail="No devices selected")
+def start_recording_take(session: Session, devices: List[str]) -> Take:
   take = session.start_take(f"Take {len(session.takes) + 1}")
   for device_name in devices:
     rec = Recording(device_name, session_id=session.id, take_id=take.id)
@@ -121,7 +96,27 @@ async def start_take(session_id: str, payload: Optional[dict] = None):
     take.add_recording(rec)
   session.devices = devices
   save_session(session)
+  return take
+
+@v1_router.post("/session/{session_id}/take/start")
+async def start_take(session_id: str, payload: Optional[dict] = None):
+  session = get_session_or_404(session_id)
+  devices = (payload or {}).get('devices') or session.devices
+  if not devices:
+    raise HTTPException(status_code=400, detail="No devices selected")
+  take = start_recording_take(session, devices)
   return take.__dict__()
+
+@v1_router.post("/quick/start")
+async def quick_start(payload: Optional[dict] = None):
+  devices = (payload or {}).get('devices')
+  if not devices:
+    raise HTTPException(status_code=400, detail="No devices selected")
+  name = f"Anônima {datetime.datetime.now().strftime('%d/%m %H:%M')}"
+  session = Session(name)
+  SESSIONS.append(session)
+  take = start_recording_take(session, devices)
+  return {"session_id": session.id, "take": take.__dict__()}
 
 @v1_router.post("/session/{session_id}/take/stop")
 async def stop_take(session_id: str):
@@ -185,13 +180,10 @@ async def devices():
   devices: List[SoundDevice] = SOUND_SYSTEM.list_devices()
   return {"devices": devices}
 
-@v1_router.get("/recordings")
-async def recordings():
-  return {"recordings": [rec.__dict__() for rec in SOUND_SYSTEM.get_recordings()]}
-
 @v1_router.get("/history")
 async def history():
-  return {"history": [rec.__dict__() for rec in get_history()]}
+  sessions_sorted = sorted(SESSIONS, key=lambda s: s.created_at, reverse=True)
+  return {"history": [session.__dict__() for session in sessions_sorted]}
 
 @v1_router.get("/result/{recording_id}", response_class=FileResponse)
 async def result(recording_id: str):
@@ -202,26 +194,6 @@ async def result(recording_id: str):
     return filename
   else:
     raise HTTPException(status_code=404, detail="File not found")
-
-@v1_router.post("/record")
-async def record(payload: dict):
-  device_name = payload['device']
-  rec = Recording(device_name)
-
-  CURRENT_RECORDINGS[rec.id] = rec
-  SOUND_SYSTEM.start_recording(rec)
-
-  return RecordResponse(rec)
-
-@v1_router.post("/stop")
-async def stop_recording(payload: dict):
-  recording_id = payload['id']
-  recording = CURRENT_RECORDINGS.get(recording_id)
-  if not recording:
-    raise HTTPException(status_code=404, detail="Recording not found")
-  
-  SOUND_SYSTEM.stop_recording(recording)
-  return {"status": "stopped", "id": recording_id}
 
 @v1_router.post("/shutdown")
 def shutdown_system(background_tasks: BackgroundTasks):

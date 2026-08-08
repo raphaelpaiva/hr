@@ -36,7 +36,7 @@ sessions/                          # raiz única
 - `GET /result/{rec_id}` encontra o wav por scan do id na árvore (dados pequenos).
 - Delete de sessão remove o diretório inteiro (wavs inclusive).
 
-## Fase A — Persistir sessões (layout atual, 2 raízes temporárias)
+## Fase A — Persistir sessões (layout atual, 2 raízes temporárias) — ✅ concluída
 
 Fixa o problema real primeiro. O `store.py` concentra toda a lógica de path para a Fase C ser barata.
 
@@ -61,7 +61,7 @@ Fixa o problema real primeiro. O `store.py` concentra toda a lógica de path par
     JSON corrompido/incompleto pulado, sessão sobrevive a "restart" (`get_sessions()`), `devices` e
     `session_id`/`take_id` sobrevivem ao roundtrip.
 
-## Fase B — Dashboard como sessão anônima (unificação API/UI)
+## Fase B — Dashboard como sessão anônima (unificação API/UI) — ✅ concluída
 
 - `src/main.py`:
   - Remover `/record`, `/stop`, `/recordings`, `CURRENT_RECORDINGS`, `RecordResponse`.

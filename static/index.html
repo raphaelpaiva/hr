@@ -22,93 +22,93 @@
             </div>
         </div>
 
-        <!-- Nova Gravação -->
+        <!-- Gravação Rápida -->
         <div class="card-bg rounded-3xl border border-custom p-6 md:p-8">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
                 </div>
-                <h3 class="text-lg font-bold text-white">Nova Gravação</h3>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-4">
-                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 w-full">Dispositivo de Entrada</label>
-                <div class="relative flex-1 min-w-[250px]">
-                    <select id="deviceSelect" class="input-bg border border-custom rounded-xl w-full py-4 pl-5 pr-12 text-gray-100 font-medium appearance-none focus:outline-none focus:border-red-500/50 transition-colors cursor-pointer">
-                        <option value="" disabled selected class="bg-card">Carregando dispositivos...</option>
-                    </select>
-                    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">Gravação Rápida</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Cria uma sessão anônima que você pode renomear depois.</p>
                 </div>
-                <button id="btnRecord" class="bg-gradient-to-b from-[#ef4444] to-[#b91c1c] hover:from-red-500 hover:to-red-700 text-white font-black py-4 px-8 rounded-full transition-all shadow-[0_0_15px_rgba(229,57,53,0.3)] text-sm tracking-widest w-full md:w-auto">
-                    INICIAR GRAVAÇÃO
-                </button>
             </div>
 
-            <div class="mt-4 flex items-center gap-2">
-                <input id="showAllDevices" type="checkbox" class="w-4 h-4 accent-red-500 bg-surface border-custom rounded">
-                <label for="showAllDevices" class="ml-2 text-sm font-medium text-gray-400 select-none cursor-pointer">Mostrar todos os dispositivos (incluindo hardware interno)</label>
+            <!-- Estado: pronto para gravar -->
+            <div id="devicePicker">
+                <div class="flex flex-wrap items-center gap-4">
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 w-full">Dispositivo de Entrada</label>
+                    <div class="relative flex-1 min-w-[250px]">
+                        <select id="deviceSelect" class="input-bg border border-custom rounded-xl w-full py-4 pl-5 pr-12 text-gray-100 font-medium appearance-none focus:outline-none focus:border-red-500/50 transition-colors cursor-pointer">
+                            <option value="" disabled selected class="bg-card">Carregando dispositivos...</option>
+                        </select>
+                        <div class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                    <button id="btnRecord" class="bg-gradient-to-b from-[#ef4444] to-[#b91c1c] hover:from-red-500 hover:to-red-700 text-white font-black py-4 px-8 rounded-full transition-all shadow-[0_0_15px_rgba(229,57,53,0.3)] text-sm tracking-widest w-full md:w-auto">
+                        INICIAR GRAVAÇÃO
+                    </button>
+                </div>
+
+                <div class="mt-4 flex items-center gap-2">
+                    <input id="showAllDevices" type="checkbox" class="w-4 h-4 accent-red-500 bg-surface border-custom rounded">
+                    <label for="showAllDevices" class="ml-2 text-sm font-medium text-gray-400 select-none cursor-pointer">Mostrar todos os dispositivos (incluindo hardware interno)</label>
+                </div>
             </div>
 
-            <div id="lastRecordResult" class="hidden mt-4 p-4 bg-card border border-custom rounded-xl text-red-400 font-mono text-sm"></div>
+            <!-- Estado: gravando -->
+            <div id="recordingView" class="hidden">
+                <div class="flex flex-col md:flex-row md:items-center gap-6">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                            <span class="text-sm font-bold tracking-widest text-red-400">GRAVANDO</span>
+                            <span id="recElapsed" class="font-mono text-gray-300 text-lg">00:00</span>
+                        </div>
+                        <p id="recDevice" class="text-xs text-gray-500 mt-2 font-mono truncate"></p>
+                        <p class="text-xs text-gray-500 mt-1">Sessão anônima criada. Ao parar, você poderá renomeá-la e ver as tomadas.</p>
+                    </div>
+                    <button id="btnStop" class="bg-gradient-to-b from-slate-600 to-slate-900 hover:from-slate-500 hover:to-slate-800 text-white font-black py-4 px-8 rounded-full transition-all text-sm tracking-widest w-full md:w-auto">
+                        PARAR GRAVAÇÃO
+                    </button>
+                </div>
+            </div>
+
             <p id="statusMsg" class="mt-2 text-sm h-5 text-red-500"></p>
         </div>
 
-        <!-- Gravações Ativas -->
-        <div class="card-bg rounded-3xl border border-custom overflow-hidden">
-            <div class="flex justify-between items-center mb-4 px-6 md:px-8 pt-6">
-                <div class="flex items-center gap-3">
-                    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414-7.072m-2.828 9.9a9 9 0 010-12.728M12 12a1 1 0 100-2 1 1 0 000 2zm0 0v4"></path></svg>
-                    <h3 class="text-lg font-bold text-white">Gravações Ativas</h3>
-                </div>
-                <button onclick="loadRecordings()" class="input-bg border border-custom hover:border-gray-500 text-gray-400 hover:text-white text-sm font-semibold py-2 px-4 rounded-full transition-colors">
-                    ↻ Atualizar
-                </button>
-            </div>
-            <div class="overflow-x-auto hidden md:block">
-                <table class="w-full text-left border-collapse min-w-[640px]">
-                    <thead>
-                        <tr class="border-y border-custom text-[10px] uppercase tracking-widest text-gray-500 bg-surface/50">
-                            <th class="px-6 md:px-8 py-4 font-bold">Ações</th>
-                            <th class="px-6 py-4 font-bold">ID</th>
-                            <th class="px-6 py-4 font-bold">Dispositivo</th>
-                            <th class="px-6 py-4 font-bold">Estado</th>
-                            <th class="px-6 md:px-8 py-4 font-bold">Criado em</th>
-                        </tr>
-                    </thead>
-                    <tbody id="recordingsTable" class="text-sm font-medium text-gray-300"></tbody>
-                </table>
-            </div>
-            <div id="recordingsCards" class="md:hidden flex flex-col gap-3 p-4 md:p-6"></div>
-        </div>
-
-        <!-- Histórico -->
+        <!-- Sessões Recentes -->
         <div class="card-bg rounded-3xl border border-custom overflow-hidden">
             <div class="flex justify-between items-center mb-4 px-6 md:px-8 pt-6">
                 <div class="flex items-center gap-3">
                     <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <h3 class="text-lg font-bold text-white">Histórico</h3>
+                    <h3 class="text-lg font-bold text-white">Sessões Recentes</h3>
                 </div>
-                <button onclick="loadHistory()" class="input-bg border border-custom hover:border-gray-500 text-gray-400 hover:text-white text-sm font-semibold py-2 px-4 rounded-full transition-colors">
+                <button onclick="loadSessions()" class="input-bg border border-custom hover:border-gray-500 text-gray-400 hover:text-white text-sm font-semibold py-2 px-4 rounded-full transition-colors">
                     ↻ Atualizar
                 </button>
             </div>
+
             <div class="overflow-x-auto hidden md:block">
                 <table class="w-full text-left border-collapse min-w-[640px]">
                     <thead>
                         <tr class="border-y border-custom text-[10px] uppercase tracking-widest text-gray-500 bg-surface/50">
-                            <th class="px-6 md:px-8 py-4 font-bold">Download</th>
-                            <th class="px-6 py-4 font-bold">ID</th>
-                            <th class="px-6 py-4 font-bold">Dispositivo</th>
-                            <th class="px-6 py-4 font-bold">Estado</th>
-                            <th class="px-6 md:px-8 py-4 font-bold">Modificação</th>
+                            <th class="px-6 md:px-8 py-4 font-bold">Sessão</th>
+                            <th class="px-6 py-4 font-bold">Criado em</th>
+                            <th class="px-6 py-4 font-bold">Tomadas</th>
+                            <th class="px-6 md:px-8 py-4 font-bold text-right">Ações</th>
                         </tr>
                     </thead>
-                    <tbody id="historyTable" class="text-sm font-medium text-gray-300"></tbody>
+                    <tbody id="sessionsTable" class="text-sm font-medium text-gray-300"></tbody>
                 </table>
             </div>
-            <div id="historyCards" class="md:hidden flex flex-col gap-3 p-4 md:p-6"></div>
+            <div id="sessionsCards" class="md:hidden flex flex-col gap-3 p-4 md:p-6"></div>
+
+            <div id="emptyState" class="hidden p-12 text-center">
+                <div class="w-14 h-14 mx-auto rounded-full bg-card border border-custom flex items-center justify-center text-2xl">🎙️</div>
+                <p class="mt-4 text-gray-500 font-medium">Nenhuma sessão ainda. Pressione INICIAR GRAVAÇÃO para começar!</p>
+            </div>
         </div>
     </main>
 
@@ -119,22 +119,23 @@
 
     <script>
         let allDevices = [];
+        let currentQuick = null;
+        let quickState = 'idle';
+        let recStartTime = null;
+        let recTimer = null;
 
         const select = document.getElementById('deviceSelect');
         const btnRecord = document.getElementById('btnRecord');
+        const btnStop = document.getElementById('btnStop');
         const statusMsg = document.getElementById('statusMsg');
-        const lastRecordResult = document.getElementById('lastRecordResult');
-        const tableBodyRecordings = document.querySelector('#recordingsTable');
-        const tableBodyHistory = document.querySelector('#historyTable');
-        const cardsRecordings = document.querySelector('#recordingsCards');
-        const cardsHistory = document.querySelector('#historyCards');
         const showAllCheckbox = document.getElementById('showAllDevices');
-
-        const STATE_ICONS = {
-            'recording': '<span class="text-lg leading-none text-red-500">🔴</span>',
-            'new': '<span class="text-lg leading-none text-yellow-500">🟡</span>',
-            'stopped': '<span class="text-lg leading-none text-green-400">✅</span>'
-        };
+        const devicePicker = document.getElementById('devicePicker');
+        const recordingView = document.getElementById('recordingView');
+        const recElapsed = document.getElementById('recElapsed');
+        const recDevice = document.getElementById('recDevice');
+        const tableBody = document.querySelector('#sessionsTable');
+        const cardsContainer = document.querySelector('#sessionsCards');
+        const emptyState = document.getElementById('emptyState');
 
         // --- Lógica de Dispositivos ---
         function renderDevices() {
@@ -175,157 +176,187 @@
 
         showAllCheckbox.addEventListener('change', renderDevices);
 
-        btnRecord.addEventListener('click', async () => {
-            if (!select.value) return;
+        // --- Gravação Rápida ---
+        function startElapsedTimer() {
+            recStartTime = Date.now();
+            clearInterval(recTimer);
+            recTimer = setInterval(() => {
+                const s = Math.floor((Date.now() - recStartTime) / 1000);
+                const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+                const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+                const ss = String(s % 60).padStart(2, '0');
+                recElapsed.textContent = `${hh}:${mm}:${ss}`;
+            }, 1000);
+        }
+
+        function stopElapsedTimer() {
+            clearInterval(recTimer);
+            recTimer = null;
+            recStartTime = null;
+        }
+
+        function renderQuickState() {
+            devicePicker.classList.toggle('hidden', quickState === 'recording');
+            recordingView.classList.toggle('hidden', quickState !== 'recording');
+        }
+
+        async function startQuickRecord() {
+            if (!select.value) {
+                statusMsg.textContent = 'Selecione um dispositivo.';
+                return;
+            }
             btnRecord.disabled = true;
+            statusMsg.textContent = '';
             try {
-                const res = await fetch(`${API_BASE}/record`, {
+                const data = await api('/quick/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device: select.value })
+                    body: JSON.stringify({ devices: [select.value] })
                 });
-                if (res.ok) {
-                    const d = await res.json();
-                    lastRecordResult.innerHTML = `Gravação <strong>${d.id.substring(0, 8)}</strong> iniciada.`;
-                    lastRecordResult.classList.remove('hidden');
-                    loadRecordings();
-                }
+                currentQuick = data;
+                quickState = 'recording';
+                recDevice.textContent = select.value;
+                recElapsed.textContent = '00:00';
+                startElapsedTimer();
+                renderQuickState();
+            } catch (e) {
+                statusMsg.textContent = e.message || 'Erro ao iniciar gravação.';
             } finally {
                 btnRecord.disabled = false;
             }
-        });
+        }
 
-        // --- Tabelas ---
-        function createTableRow(rec, isHistory = false) {
+        async function stopQuickRecord() {
+            if (!currentQuick) return;
+            btnStop.disabled = true;
+            statusMsg.textContent = '';
+            try {
+                await api(`/session/${currentQuick.session_id}/take/stop`, { method: 'POST' });
+                stopElapsedTimer();
+                const sid = currentQuick.session_id;
+                currentQuick = null;
+                quickState = 'idle';
+                renderQuickState();
+                window.location.href = `/sessions?id=${sid}`;
+            } catch (e) {
+                statusMsg.textContent = e.message || 'Erro ao parar gravação.';
+            } finally {
+                btnStop.disabled = false;
+            }
+        }
+
+        btnRecord.addEventListener('click', startQuickRecord);
+        btnStop.addEventListener('click', stopQuickRecord);
+
+        // --- Sessões Recentes ---
+        function latestTake(session) {
+            const takes = session.takes || [];
+            return takes.length ? takes[takes.length - 1] : null;
+        }
+
+        function zipUrl(session, take) {
+            return take ? `/api/v1/session/${session.id}/take/${take.id}/zip` : null;
+        }
+
+        function createSessionRow(session) {
+            const take = latestTake(session);
+            const takesCount = (session.takes || []).length;
+            const url = zipUrl(session, take);
             const tr = document.createElement('tr');
             tr.className = "border-b border-custom hover:bg-[#2a2424] transition-colors";
 
-            const tdAction = document.createElement('td');
-            tdAction.className = 'px-6 md:px-8 py-4';
-            const actions = document.createElement('div');
-            actions.className = 'flex items-center gap-2';
+            const tdName = document.createElement('td');
+            tdName.className = 'px-6 md:px-8 py-5';
+            const nameLink = document.createElement('a');
+            nameLink.href = `/sessions?id=${session.id}`;
+            nameLink.className = 'text-sm font-bold text-red-400 hover:text-red-300 transition-colors inline-flex items-center gap-2';
+            nameLink.innerHTML = `<svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>${session.name}`;
+            tdName.appendChild(nameLink);
+            tr.appendChild(tdName);
 
-            const link = document.createElement('a');
-            link.href = `/api/v1/result/${rec.id}`;
-            link.className = 'w-9 h-9 flex items-center justify-center bg-surface text-cyan-400 rounded-lg border border-custom hover:border-cyan-500 transition-colors';
-            link.innerHTML = '⤓';
-            actions.appendChild(link);
+            const tdCreated = document.createElement('td');
+            tdCreated.className = 'px-6 py-5 whitespace-nowrap text-gray-400 font-mono text-xs';
+            tdCreated.textContent = formatTimestamp(session.created_at);
+            tr.appendChild(tdCreated);
 
-            if (!isHistory) {
-                const btnStop = document.createElement('button');
-                btnStop.innerHTML = '⏹';
-                if (rec.state === 'recording') {
-                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-surface text-red-500 rounded-lg border border-custom hover:border-red-500 transition-colors';
-                    btnStop.onclick = () => stopRecording(rec.id);
-                } else {
-                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-surface text-gray-600 rounded-lg border border-custom cursor-not-allowed';
-                }
-                actions.appendChild(btnStop);
+            const tdTakes = document.createElement('td');
+            tdTakes.className = 'px-6 py-5 text-gray-400';
+            tdTakes.textContent = takesCount;
+            tr.appendChild(tdTakes);
+
+            const tdActions = document.createElement('td');
+            tdActions.className = 'px-6 md:px-8 py-5 whitespace-nowrap text-right';
+            const divActions = document.createElement('div');
+            divActions.className = 'flex items-center justify-end gap-2';
+            const btnOpen = document.createElement('a');
+            btnOpen.href = `/sessions?id=${session.id}`;
+            btnOpen.className = 'w-9 h-9 flex items-center justify-center bg-surface text-gray-400 rounded-lg border border-custom hover:border-gray-500 hover:text-white transition-colors';
+            btnOpen.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>';
+            btnOpen.title = 'Abrir sessão';
+            divActions.appendChild(btnOpen);
+            if (url) {
+                const btnZip = document.createElement('a');
+                btnZip.href = url;
+                btnZip.className = 'w-9 h-9 flex items-center justify-center bg-surface text-cyan-400 rounded-lg border border-custom hover:border-cyan-500 transition-colors';
+                btnZip.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>';
+                btnZip.title = 'Baixar última tomada (ZIP)';
+                divActions.appendChild(btnZip);
             }
-            tdAction.appendChild(actions);
-            tr.appendChild(tdAction);
-
-            const cell = (html, cls = 'px-6 py-4') => {
-                const td = document.createElement('td');
-                td.className = cls;
-                td.innerHTML = html;
-                tr.appendChild(td);
-            };
-            cell(`<span class="font-mono text-gray-500">${rec.id.substring(0, 8)}</span>`);
-            cell(`<span class="font-medium text-white">${rec.device_name}</span>`);
-            cell(STATE_ICONS[rec.state] || rec.state);
-            cell(`<span class="text-gray-400 font-mono text-xs">${formatTimestamp(isHistory ? rec.last_modification : rec.created_at)}</span>`);
+            tdActions.appendChild(divActions);
+            tr.appendChild(tdActions);
 
             return tr;
         }
 
-        function createRecordCard(rec, isHistory = false) {
+        function createSessionCard(session) {
+            const take = latestTake(session);
+            const takesCount = (session.takes || []).length;
+            const url = zipUrl(session, take);
             const card = document.createElement('div');
-            card.className = 'bg-surface border border-custom rounded-2xl p-4 flex flex-col gap-3';
-
-            const header = document.createElement('div');
-            header.className = 'flex items-start justify-between gap-3';
-            header.innerHTML = `
-                <div class="min-w-0">
-                    <div class="font-medium text-white truncate">${rec.device_name}</div>
-                    <div class="font-mono text-gray-500 text-xs mt-0.5">${rec.id.substring(0, 8)}</div>
+            card.className = 'bg-surface border border-custom rounded-2xl p-4';
+            const actions = url
+                ? `<a href="${url}" class="input-bg border border-custom hover:border-gray-500 text-cyan-400 px-4 py-2 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-2">⤓ ZIP</a>`
+                : '';
+            card.innerHTML = `
+                <div class="flex items-start justify-between gap-3">
+                    <a href="/sessions?id=${session.id}" class="min-w-0 inline-flex items-center gap-2 text-sm font-bold text-red-400 hover:text-red-300 transition-colors">
+                        <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                        <span class="truncate">${session.name}</span>
+                    </a>
+                    <span class="text-gray-400 text-xs shrink-0 mt-0.5">${takesCount} ${takesCount === 1 ? 'tomada' : 'tomadas'}</span>
                 </div>
-                <div class="text-lg leading-none shrink-0">${STATE_ICONS[rec.state] || rec.state}</div>`;
-            card.appendChild(header);
-
-            const meta = document.createElement('div');
-            meta.className = 'text-gray-400 font-mono text-xs';
-            meta.textContent = formatTimestamp(isHistory ? rec.last_modification : rec.created_at);
-            card.appendChild(meta);
-
-            const actions = document.createElement('div');
-            actions.className = 'flex items-center gap-2';
-            const link = document.createElement('a');
-            link.href = `/api/v1/result/${rec.id}`;
-            link.className = 'w-9 h-9 flex items-center justify-center bg-card text-cyan-400 rounded-lg border border-custom hover:border-cyan-500 transition-colors';
-            link.innerHTML = '⤓';
-            actions.appendChild(link);
-
-            if (!isHistory) {
-                const btnStop = document.createElement('button');
-                btnStop.innerHTML = '⏹';
-                if (rec.state === 'recording') {
-                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-card text-red-500 rounded-lg border border-custom hover:border-red-500 transition-colors';
-                    btnStop.onclick = () => stopRecording(rec.id);
-                } else {
-                    btnStop.className = 'w-9 h-9 flex items-center justify-center bg-card text-gray-600 rounded-lg border border-custom cursor-not-allowed';
-                }
-                actions.appendChild(btnStop);
-            }
-            card.appendChild(actions);
-
+                <div class="mt-3 text-gray-400 font-mono text-xs">${formatTimestamp(session.created_at)}</div>
+                <div class="mt-3 flex items-center gap-2">${actions}</div>`;
             return card;
         }
 
-        async function loadRecordings() {
-            try {
-                const data = await api('/recordings');
-                const list = data.recordings || data;
-                tableBodyRecordings.innerHTML = '';
-                cardsRecordings.innerHTML = '';
-                list.sort((a, b) => b.created_at - a.created_at).forEach(r => {
-                    tableBodyRecordings.appendChild(createTableRow(r, false));
-                    cardsRecordings.appendChild(createRecordCard(r, false));
-                });
-            } catch (e) {}
-        }
-
-        async function loadHistory() {
+        async function loadSessions() {
             try {
                 const data = await api('/history');
-                const list = data.history || data;
-                tableBodyHistory.innerHTML = '';
-                cardsHistory.innerHTML = '';
-                list.sort((a, b) => b.created_at - a.created_at).forEach(r => {
-                    tableBodyHistory.appendChild(createTableRow(r, true));
-                    cardsHistory.appendChild(createRecordCard(r, true));
+                const sessions = data.history || data;
+                tableBody.innerHTML = '';
+                cardsContainer.innerHTML = '';
+
+                if (sessions.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    return;
+                }
+
+                emptyState.classList.add('hidden');
+
+                sessions.slice().sort((a, b) => b.created_at - a.created_at).forEach(session => {
+                    tableBody.appendChild(createSessionRow(session));
+                    cardsContainer.appendChild(createSessionCard(session));
                 });
-            } catch (e) {}
+            } catch (e) {
+                statusMsg.textContent = 'Erro ao carregar sessões.';
+            }
         }
 
-        async function stopRecording(id) {
-            await api('/stop', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id })
-            });
-            loadRecordings();
-            loadHistory();
-        }
-
-        window.matchMedia('(min-width: 768px)').addEventListener('change', () => {
-            loadRecordings();
-            loadHistory();
-        });
+        window.matchMedia('(min-width: 768px)').addEventListener('change', loadSessions);
 
         loadDevices();
-        loadRecordings();
-        loadHistory();
+        loadSessions();
     </script>
 </body>
 </html>
