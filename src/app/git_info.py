@@ -1,3 +1,3 @@
-BRANCH = "feat/new-design-system"
-COMMIT = "ab33f21"
-TAG = "v0.1.0"
+BRANCH = "main"
+COMMIT = "0a73e14"
+TAG = "v0.2.0"
