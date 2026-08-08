@@ -188,12 +188,13 @@ async def history():
 @v1_router.get("/result/{recording_id}", response_class=FileResponse)
 async def result(recording_id: str):
   print(f"Serving file for id: {recording_id}")
-  filename = f"{BASE_PATH}/{recording_id}/{recording_id}.wav"
+  filename = Path(BASE_PATH)
 
-  if Path(filename).exists():
-    return filename
-  else:
-    raise HTTPException(status_code=404, detail="File not found")
+  if filename.exists():
+    for wav in filename.glob(f"*/takes/*/{recording_id}.wav"):
+      return str(wav)
+
+  raise HTTPException(status_code=404, detail="File not found")
 
 @v1_router.post("/shutdown")
 def shutdown_system(background_tasks: BackgroundTasks):

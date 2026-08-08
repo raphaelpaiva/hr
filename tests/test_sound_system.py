@@ -43,9 +43,13 @@ def test_parse_arecord_handles_blank_lines():
   assert [d.name for d in devices] == ['null']
 
 
+SID = 's' * 32
+TID = 't' * 32
+
+
 def test_dummy_start_recording_stores_and_marks(tmp_recordings):
   ss = DummyAlsaSoundSystem()
-  rec = Recording('plughw:CARD=CODEC,DEV=0')
+  rec = Recording('plughw:CARD=CODEC,DEV=0', session_id=SID, take_id=TID)
   ss.start_recording(rec)
   assert rec.state == RecordState.RECORDING
   assert ss.get_recordings() == [rec]
@@ -53,9 +57,9 @@ def test_dummy_start_recording_stores_and_marks(tmp_recordings):
 
 def test_dummy_stop_recording_marks_stopped(tmp_recordings):
   ss = DummyAlsaSoundSystem()
-  rec = Recording('null')
+  rec = Recording('null', session_id=SID, take_id=TID)
   ss.start_recording(rec)
   ss.stop_recording(rec)
   assert rec.state == RecordState.STOPPED
-  # stays in the list so /recordings can report it
+  # stays in the list so the take can still report it
   assert ss.get_recordings() == [rec]

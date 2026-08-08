@@ -86,8 +86,10 @@ def test_result_404_when_file_missing(client, tmp_recordings):
 
 def test_result_serves_wav(client, tmp_recordings):
   data = client.post('/api/v1/quick/start', json={'devices': [DEVICE]}).json()
+  sid = data['session_id']
   rec_id = data['take']['recordings'][0]['id']
-  wav = tmp_recordings / rec_id / f'{rec_id}.wav'
+  take_id = data['take']['id']
+  wav = tmp_recordings / sid / 'takes' / take_id / f'{rec_id}.wav'
   wav.parent.mkdir(parents=True, exist_ok=True)
   wav.write_bytes(b'RIFF-fake-wav')
 

@@ -5,10 +5,10 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from ..config import SESSIONS_PATH
+from ..config import BASE_PATH
 from .session import Session
 
-SESSIONS_DIR = Path(SESSIONS_PATH)
+SESSIONS_DIR = Path(BASE_PATH)
 
 def get_sessions() -> List[Session]:
   sessions: List[Session] = []

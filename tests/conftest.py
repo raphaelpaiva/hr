@@ -12,12 +12,11 @@ from app.sound_system.sound_system import DummyAlsaSoundSystem
 
 @pytest.fixture
 def tmp_recordings(tmp_path, monkeypatch):
-  """Point every recordings-dir consumer at a throwaway temp directory."""
+  """Point every storage consumer (single-root sessions/) at a throwaway temp directory."""
   monkeypatch.setattr(app.config, 'BASE_PATH', str(tmp_path))
   monkeypatch.setattr(app.sound_system.recording, 'BASE_PATH', str(tmp_path))
   monkeypatch.setattr(main, 'BASE_PATH', str(tmp_path))
-  monkeypatch.setattr(app.config, 'SESSIONS_PATH', str(tmp_path / 'sessions'))
-  monkeypatch.setattr(app.sessions.store, 'SESSIONS_DIR', tmp_path / 'sessions')
+  monkeypatch.setattr(app.sessions.store, 'SESSIONS_DIR', tmp_path)
   return tmp_path
 
 

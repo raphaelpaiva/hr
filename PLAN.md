@@ -12,7 +12,7 @@ da home vira uma *sessão anônima*.
 
 ## Decisões registradas
 
-- Formato de storage: **raiz única** — `sessions/<session_id>/` com `session.json`, `takes/`, wavs e `recording.json`.
+- Formato de storage: **raiz única** — `sessions/<session_id>/` com `session.json`, `takes/`, wavs e `<rec_id>.json`.
 - **Delete de sessão remove também os wavs** (nova semântica, com confirmação forte na UI).
 - Implementação em **fases** (diffs revisáveis e revertíveis).
 - Gravar `session_id`/`take_id` dentro de cada `recording.json` (permite reconstrução e evita órfãos invisíveis).
@@ -28,7 +28,7 @@ sessions/                          # raiz única
     takes/
       <take_id>/
         <rec_id>.wav
-        recording.json             # por dispositivo (agora com session_id/take_id)
+        <rec_id>.json               # por dispositivo (com session_id/take_id)
 ```
 
 - `GET /api/v1/history` passa a retornar **sessões** (não mais gravações soltas).
@@ -75,7 +75,7 @@ Fixa o problema real primeiro. O `store.py` concentra toda a lógica de path par
   - `tests/test_api_record.py` → cobertura do fluxo anônimo (quick/start + take/stop + delete apaga wavs).
   - Ajustar checks offline de `index.html` em `tests/test_static.py`.
 
-## Fase C — Raiz única + migração
+## Fase C — Raiz única + migração — ✅ concluída
 
 - `src/app/sound_system/recording.py`:
   - `Recording(device_name, session_id, take_id)` — path = `sessions/<sid>/takes/<tid>/`.

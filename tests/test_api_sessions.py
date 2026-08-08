@@ -158,7 +158,8 @@ def test_zip_includes_wavs_with_sanitized_names(client, tmp_recordings):
   sid = create_session(client)
   take = client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]}).json()
   rec_id = take['recordings'][0]['id']
-  wav = tmp_recordings / rec_id / f'{rec_id}.wav'
+  take_id = take['id']
+  wav = tmp_recordings / sid / 'takes' / take_id / f'{rec_id}.wav'
   wav.parent.mkdir(parents=True, exist_ok=True)
   wav.write_bytes(b'RIFF-fake-wav')
   client.post(f'/api/v1/session/{sid}/take/stop')

@@ -1,6 +1,8 @@
 from app.sound_system.recording import Recording
 from app.sessions.session import Session, Take
 
+SID = 's' * 32
+
 
 def test_take_init():
   take = Take('Take 1', 1)
@@ -11,16 +13,16 @@ def test_take_init():
   assert take.created_at is not None
 
 
-def test_take_add_recording():
+def test_take_add_recording(tmp_recordings):
   take = Take('Take 1', 1)
-  rec = Recording('null')
+  rec = Recording('null', session_id=SID, take_id=take.id)
   take.add_recording(rec)
   assert take.recordings == [rec]
 
 
 def test_take_dict(tmp_recordings):
   take = Take('Take 1', 1)
-  rec = Recording('null')
+  rec = Recording('null', session_id=SID, take_id=take.id)
   rec.mark_started()
   take.add_recording(rec)
 
@@ -60,7 +62,7 @@ def test_session_dict_serializes_takes_as_dicts(tmp_recordings):
   """Regression: Session.__dict__ must call take.__dict__() (parenthesized)."""
   session = Session('Ensaio')
   take = session.start_take()
-  rec = Recording('null')
+  rec = Recording('null', session_id=session.id, take_id=take.id)
   take.add_recording(rec)
 
   data = session.__dict__()

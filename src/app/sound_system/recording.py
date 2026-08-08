@@ -30,10 +30,10 @@ class Recording():
       self.session_id: Optional[str] = session_id
       self.take_id: Optional[str] = take_id
       
-      self.base_dir = Path(f"{BASE_PATH}/{self.id}")
+      if self.session_id is None or self.take_id is None:
+        raise ValueError("session_id and take_id are required.")
       
-      self.output_path = self.base_dir / Path(f"{self.id}.wav")
-      self.json_path = self.base_dir / Path(f"recording.json")
+      self._set_paths()
       self.error_code: Union[int, None] = None
     
       self._prepare_filesystem()
@@ -42,6 +42,11 @@ class Recording():
       self.device_name = from_dict['device_name']
       self.session_id = from_dict.get('session_id')
       self.take_id = from_dict.get('take_id')
+      
+      if self.session_id is None or self.take_id is None:
+        raise ValueError("session_id and take_id are required.")
+      
+      self._set_paths()
       self.created_at = datetime.fromtimestamp(from_dict.get('created_at', 0.0))
 
       if 'last_modification' not in from_dict:
@@ -54,9 +59,11 @@ class Recording():
         self.error_code = from_dict['error_code']
       
       self.state = RecordState(from_dict['state'])
-      self.base_dir = Path(f"{BASE_PATH}/{self.id}")
-      self.output_path = self.base_dir / Path(f"{self.id}.wav")
-      self.json_path = self.base_dir / Path(f"recording.json")
+
+  def _set_paths(self) -> None:
+    self.base_dir = Path(f"{BASE_PATH}/{self.session_id}/takes/{self.take_id}")
+    self.output_path = self.base_dir / Path(f"{self.id}.wav")
+    self.json_path = self.base_dir / Path(f"{self.id}.json")
 
   def _prepare_filesystem(self) -> None:
     self.output_path.parent.mkdir(parents=True, exist_ok=True)
