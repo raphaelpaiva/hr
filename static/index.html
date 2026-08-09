@@ -76,7 +76,7 @@
                 </div>
 
                 <p id="recHint" class="text-xs text-gray-500 text-center mt-8 max-w-[220px] leading-relaxed">
-                    Pressione para criar a sessão e iniciar uma nova tomada. O sistema criará arquivos separados por canal.
+                    Pressione para criar a sessão e iniciar uma nova tomada. Sem nome, a sessão recebe data e hora automaticamente.
                 </p>
             </div>
         </div>
@@ -112,7 +112,7 @@
 
             <div id="emptyState" class="hidden p-12 text-center">
                 <div class="w-14 h-14 mx-auto rounded-full bg-card border border-custom flex items-center justify-center text-2xl">🎙️</div>
-                <p class="mt-4 text-gray-500 font-medium">Nenhuma sessão ainda. Preencha o nome e pressione GRAVAR para começar!</p>
+                <p class="mt-4 text-gray-500 font-medium">Nenhuma sessão ainda. Escolha os dispositivos e pressione GRAVAR para começar!</p>
             </div>
         </div>
     </main>
@@ -252,10 +252,6 @@
             try {
                 if (!isRecording) {
                     const name = el.name.value.trim();
-                    if (!name) {
-                        statusMsg.textContent = 'Digite um nome para a sessão.';
-                        return;
-                    }
                     if (!selectedDevices.length) {
                         statusMsg.textContent = 'Selecione pelo menos um dispositivo de entrada.';
                         return;

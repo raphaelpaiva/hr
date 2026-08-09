@@ -114,7 +114,7 @@ async def start_session(payload: Optional[dict] = None):
     raise HTTPException(status_code=400, detail="No devices selected")
   name = ((payload or {}).get('name') or '').strip()
   if not name:
-    raise HTTPException(status_code=400, detail="Name is required")
+    name = f"Sessão de {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}"
   session = Session(name)
   SESSIONS.append(session)
   take = start_recording_take(session, devices)

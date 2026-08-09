@@ -98,14 +98,17 @@ def test_session_start_creates_named_session_and_records(client):
   assert sessions[0]['devices'] == [DEVICE]
 
 
-def test_session_start_400_without_name(client):
+def test_session_start_auto_name_when_blank(client):
   res = client.post('/api/v1/session/start', json={'devices': [DEVICE]})
-  assert res.status_code == 400
-  assert res.json()['detail'] == 'Name is required'
+  assert res.status_code == 200
+  assert res.json()['session_id']
+  session = client.get(f"/api/v1/session/{res.json()['session_id']}").json()
+  assert session['name'].startswith('Sessão de ')
 
   res = client.post('/api/v1/session/start', json={'name': '   ', 'devices': [DEVICE]})
-  assert res.status_code == 400
-  assert res.json()['detail'] == 'Name is required'
+  assert res.status_code == 200
+  session = client.get(f"/api/v1/session/{res.json()['session_id']}").json()
+  assert session['name'].startswith('Sessão de ')
 
 
 def test_session_start_400_without_devices(client):
