@@ -107,6 +107,19 @@ async def start_take(session_id: str, payload: Optional[dict] = None):
   take = start_recording_take(session, devices)
   return take.__dict__()
 
+@v1_router.post("/session/start")
+async def start_session(payload: Optional[dict] = None):
+  devices = (payload or {}).get('devices')
+  if not devices:
+    raise HTTPException(status_code=400, detail="No devices selected")
+  name = ((payload or {}).get('name') or '').strip()
+  if not name:
+    raise HTTPException(status_code=400, detail="Name is required")
+  session = Session(name)
+  SESSIONS.append(session)
+  take = start_recording_take(session, devices)
+  return {"session_id": session.id, "take": take.__dict__()}
+
 @v1_router.post("/quick/start")
 async def quick_start(payload: Optional[dict] = None):
   devices = (payload or {}).get('devices')

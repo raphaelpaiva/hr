@@ -20,7 +20,7 @@ sessions/<session_id>/
     <rec_id>.json   # per-recording state (includes session_id/take_id)
 ```
 
-Sessions are loaded on startup, written atomically on every mutation, and deleting a session removes its wavs too. The dashboard's "quick record" creates an anonymous session (`Anônima <dd/mm HH:MM>`).
+Sessions are loaded on startup, written atomically on every mutation, and deleting a session removes its wavs too. The main screen creates a named session and starts recording in one step (`POST /api/v1/session/start`); the legacy "quick record" (`POST /api/v1/quick/start`) still creates an anonymous session (`Anônima <dd/mm HH:MM>`).
 
 ## One-time migration
 

@@ -17,66 +17,71 @@
 
         <div class="flex items-center justify-between px-2">
             <div>
-                <h1 class="text-2xl md:text-3xl font-extrabold text-white">Painel de Controle</h1>
-                <p class="text-sm text-gray-500 mt-1">Controle as gravações do estúdio em tempo real.</p>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-white">Nova Sessão</h1>
+                <p class="text-sm text-gray-500 mt-1">Nomeie a sessão, escolha os dispositivos e comece a gravar.</p>
             </div>
         </div>
 
-        <!-- Gravação Rápida -->
-        <div class="card-bg rounded-3xl border border-custom p-6 md:p-8">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-                </div>
-                <div>
-                    <h3 class="text-lg font-bold text-white">Gravação Rápida</h3>
-                    <p class="text-xs text-gray-500 mt-0.5">Cria uma sessão anônima que você pode renomear depois.</p>
-                </div>
-            </div>
+        <!-- Nova Sessão / Gravação -->
+        <div class="card-bg rounded-3xl border border-custom p-6 md:p-10 flex flex-col md:flex-row gap-8 md:gap-10">
 
-            <!-- Estado: pronto para gravar -->
-            <div id="devicePicker">
-                <div class="flex flex-wrap items-center gap-4">
-                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 w-full">Dispositivo de Entrada</label>
-                    <div class="relative flex-1 min-w-[250px]">
+            <!-- Coluna Esquerda: Inputs -->
+            <div class="flex-1 flex flex-col justify-center gap-8">
+
+                <!-- Nome da Sessão -->
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Nome da Sessão</label>
+                    <input id="sessionName" type="text" placeholder="Ex: Ensaio de Sábado, Show no Pub..."
+                           class="input-bg border border-custom rounded-xl w-full py-4 pl-5 pr-5 text-gray-100 font-medium focus:outline-none focus:border-red-500/50 transition-colors">
+                </div>
+
+                <!-- Dispositivos de Entrada -->
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Dispositivos de Entrada</label>
+                    <div class="relative">
                         <select id="deviceSelect" class="input-bg border border-custom rounded-xl w-full py-4 pl-5 pr-12 text-gray-100 font-medium appearance-none focus:outline-none focus:border-red-500/50 transition-colors cursor-pointer">
-                            <option value="" disabled selected class="bg-card">Carregando dispositivos...</option>
+                            <option value="all" class="bg-card">Carregando dispositivos...</option>
                         </select>
                         <div class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
                     </div>
-                    <button id="btnRecord" class="bg-gradient-to-b from-[#ef4444] to-[#b91c1c] hover:from-red-500 hover:to-red-700 text-white font-black py-4 px-8 rounded-full transition-all shadow-[0_0_15px_rgba(229,57,53,0.3)] text-sm tracking-widest w-full md:w-auto">
-                        INICIAR GRAVAÇÃO
-                    </button>
-                </div>
 
-                <div class="mt-4 flex items-center gap-2">
-                    <input id="showAllDevices" type="checkbox" class="w-4 h-4 accent-red-500 bg-surface border-custom rounded">
-                    <label for="showAllDevices" class="ml-2 text-sm font-medium text-gray-400 select-none cursor-pointer">Mostrar todos os dispositivos (incluindo hardware interno)</label>
+                    <!-- Tags de Dispositivos -->
+                    <div id="deviceTags" class="flex flex-wrap gap-3 mt-4"></div>
                 </div>
             </div>
 
-            <!-- Estado: gravando -->
-            <div id="recordingView" class="hidden">
-                <div class="flex flex-col md:flex-row md:items-center gap-6">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-3">
-                            <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                            <span class="text-sm font-bold tracking-widest text-red-400">GRAVANDO</span>
-                            <span id="recElapsed" class="font-mono text-gray-300 text-lg">00:00</span>
-                        </div>
-                        <p id="recDevice" class="text-xs text-gray-500 mt-2 font-mono truncate"></p>
-                        <p class="text-xs text-gray-500 mt-1">Sessão anônima criada. Ao parar, você poderá renomeá-la e ver as tomadas.</p>
-                    </div>
-                    <button id="btnStop" class="bg-gradient-to-b from-slate-600 to-slate-900 hover:from-slate-500 hover:to-slate-800 text-white font-black py-4 px-8 rounded-full transition-all text-sm tracking-widest w-full md:w-auto">
-                        PARAR GRAVAÇÃO
+            <!-- Divisor -->
+            <div class="hidden md:block w-px bg-[#332b2b] my-4"></div>
+
+            <!-- Coluna Direita: Botão de Gravar -->
+            <div class="w-full md:w-80 flex flex-col items-center justify-center pt-2">
+                <!-- Status -->
+                <div id="recPill" class="bg-red-500/10 text-red-500 px-5 py-2 rounded-full text-xs font-bold tracking-widest flex items-center gap-2 mb-8 border border-red-500/20">
+                    <div id="recDot" class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></div>
+                    <span id="recPillText">PRONTO PARA GRAVAR</span>
+                </div>
+
+                <!-- Botão Gigante -->
+                <div class="relative group cursor-pointer">
+                    <div id="recGlow" class="absolute inset-0 bg-red-600 rounded-full blur-[40px] opacity-40 group-hover:opacity-60 transition-opacity duration-500"></div>
+
+                    <button id="btnRecord" class="relative w-44 h-44 md:w-48 md:h-48 bg-gradient-to-b from-[#ef4444] to-[#b91c1c] rounded-full flex flex-col items-center justify-center text-white border-4 border-[#2a1a1a] glow-effect group-hover:scale-105 transition-all duration-300">
+                        <svg id="recIcon" class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path id="recIconPath" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                        </svg>
+                        <span id="recLabel" class="font-black tracking-widest text-sm mt-1">GRAVAR</span>
                     </button>
                 </div>
-            </div>
 
-            <p id="statusMsg" class="mt-2 text-sm h-5 text-red-500"></p>
+                <p id="recHint" class="text-xs text-gray-500 text-center mt-8 max-w-[220px] leading-relaxed">
+                    Pressione para criar a sessão e iniciar uma nova tomada. O sistema criará arquivos separados por canal.
+                </p>
+            </div>
         </div>
+
+        <p id="statusMsg" class="text-sm h-5 text-red-500"></p>
 
         <!-- Sessões Recentes -->
         <div class="card-bg rounded-3xl border border-custom overflow-hidden">
@@ -107,7 +112,7 @@
 
             <div id="emptyState" class="hidden p-12 text-center">
                 <div class="w-14 h-14 mx-auto rounded-full bg-card border border-custom flex items-center justify-center text-2xl">🎙️</div>
-                <p class="mt-4 text-gray-500 font-medium">Nenhuma sessão ainda. Pressione INICIAR GRAVAÇÃO para começar!</p>
+                <p class="mt-4 text-gray-500 font-medium">Nenhuma sessão ainda. Preencha o nome e pressione GRAVAR para começar!</p>
             </div>
         </div>
     </main>
@@ -118,65 +123,113 @@
     </footer>
 
     <script>
-        let allDevices = [];
-        let currentQuick = null;
-        let quickState = 'idle';
+        let sessionId = null;
+        let isRecording = false;
+        let selectedDevices = [];
+        let availableDevices = [];
         let recStartTime = null;
         let recTimer = null;
 
-        const select = document.getElementById('deviceSelect');
-        const btnRecord = document.getElementById('btnRecord');
-        const btnStop = document.getElementById('btnStop');
+        const el = {
+            name: document.getElementById('sessionName'),
+            deviceSelect: document.getElementById('deviceSelect'),
+            deviceTags: document.getElementById('deviceTags'),
+            recPill: document.getElementById('recPill'),
+            recDot: document.getElementById('recDot'),
+            recPillText: document.getElementById('recPillText'),
+            btnRecord: document.getElementById('btnRecord'),
+            recGlow: document.getElementById('recGlow'),
+            recIcon: document.getElementById('recIcon'),
+            recIconPath: document.getElementById('recIconPath'),
+            recLabel: document.getElementById('recLabel'),
+            recHint: document.getElementById('recHint'),
+        };
         const statusMsg = document.getElementById('statusMsg');
-        const showAllCheckbox = document.getElementById('showAllDevices');
-        const devicePicker = document.getElementById('devicePicker');
-        const recordingView = document.getElementById('recordingView');
-        const recElapsed = document.getElementById('recElapsed');
-        const recDevice = document.getElementById('recDevice');
         const tableBody = document.querySelector('#sessionsTable');
         const cardsContainer = document.querySelector('#sessionsCards');
         const emptyState = document.getElementById('emptyState');
 
-        // --- Lógica de Dispositivos ---
-        function renderDevices() {
-            const showAll = showAllCheckbox.checked;
-
-            select.innerHTML = '<option value="" disabled selected class="bg-card">Selecione um dispositivo</option>';
-
-            let filtered = allDevices.filter(d => {
-                if (d.name === 'null') return true;
-                if (showAll) return true;
-                return d.name.startsWith('plughw');
-            });
-
-            filtered.sort((a, b) => {
-                if (a.name === 'null') return -1;
-                if (b.name === 'null') return 1;
-                return a.name.localeCompare(b.name);
-            });
-
-            filtered.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d.name;
-                opt.textContent = d.name;
-                opt.className = 'bg-card';
-                select.appendChild(opt);
-            });
-        }
-
+        // --- Dispositivos ---
         async function loadDevices() {
             try {
                 const data = await api('/devices');
-                allDevices = data.devices || [];
-                renderDevices();
+                availableDevices = (data.devices || [])
+                    .filter(d => d.name.startsWith('plughw'))
+                    .map(d => d.name);
+                renderDeviceSelect();
             } catch (e) {
-                statusMsg.textContent = 'Erro ao carregar dispositivos.';
+                el.deviceSelect.innerHTML = '<option value="all" class="bg-card">Nenhum dispositivo encontrado</option>';
             }
         }
 
-        showAllCheckbox.addEventListener('change', renderDevices);
+        function renderDeviceSelect() {
+            const n = availableDevices.length;
+            el.deviceSelect.innerHTML = `<option value="all" class="bg-card">Todos os Dispositivos (${n})</option>` +
+                availableDevices.map(d => `<option value="${d}" class="bg-card">${d}</option>`).join('');
+            el.deviceSelect.value = 'all';
+            setSelectedDevices(availableDevices.slice());
+        }
 
-        // --- Gravação Rápida ---
+        function setSelectedDevices(devices) {
+            selectedDevices = devices;
+            renderDeviceTags();
+        }
+
+        function renderDeviceTags() {
+            el.deviceTags.innerHTML = '';
+            selectedDevices.forEach(name => {
+                const tag = document.createElement('div');
+                tag.className = 'input-bg border border-custom rounded-full px-4 py-1.5 text-xs text-gray-400 flex items-center gap-2';
+                tag.innerHTML = `
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                    <span>${name}</span>
+                    <button class="text-gray-500 hover:text-red-400 transition-colors" title="Remover dispositivo">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>`;
+                tag.querySelector('button').onclick = () => removeDevice(name);
+                el.deviceTags.appendChild(tag);
+            });
+        }
+
+        function removeDevice(name) {
+            const next = selectedDevices.filter(d => d !== name);
+            if (next.length === 0) {
+                el.deviceSelect.value = 'all';
+                setSelectedDevices(availableDevices.slice());
+            } else {
+                setSelectedDevices(next);
+            }
+        }
+
+        el.deviceSelect.addEventListener('change', () => {
+            if (el.deviceSelect.value === 'all') {
+                setSelectedDevices(availableDevices.slice());
+            } else {
+                setSelectedDevices([el.deviceSelect.value]);
+            }
+        });
+
+        // --- Botão de Gravar ---
+        function updateRecordButton() {
+            if (isRecording) {
+                el.btnRecord.className = 'relative w-44 h-44 md:w-48 md:h-48 bg-gradient-to-b from-slate-600 to-slate-900 rounded-full flex flex-col items-center justify-center text-white border-4 border-[#2a1a1a] group-hover:scale-105 transition-all duration-300';
+                el.recIconPath.setAttribute('d', 'M6 6h12v12H6z');
+                el.recLabel.textContent = 'PARAR';
+                el.recGlow.className = 'absolute inset-0 bg-slate-700 rounded-full blur-[40px] opacity-50';
+                el.recPill.className = 'bg-red-500/20 text-red-400 px-5 py-2 rounded-full text-xs font-bold tracking-widest flex items-center gap-2 mb-8 border border-red-500/30';
+                el.recDot.className = 'w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse';
+                el.recPillText.textContent = 'GRAVANDO...';
+            } else {
+                el.btnRecord.className = 'relative w-44 h-44 md:w-48 md:h-48 bg-gradient-to-b from-[#ef4444] to-[#b91c1c] rounded-full flex flex-col items-center justify-center text-white border-4 border-[#2a1a1a] glow-effect group-hover:scale-105 transition-all duration-300';
+                el.recIconPath.setAttribute('d', 'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z');
+                el.recLabel.textContent = 'GRAVAR';
+                el.recGlow.className = 'absolute inset-0 bg-red-600 rounded-full blur-[40px] opacity-40 group-hover:opacity-60 transition-opacity duration-500';
+                el.recPill.className = 'bg-red-500/10 text-red-500 px-5 py-2 rounded-full text-xs font-bold tracking-widest flex items-center gap-2 mb-8 border border-red-500/20';
+                el.recDot.className = 'w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse';
+                el.recPillText.textContent = 'PRONTO PARA GRAVAR';
+            }
+        }
+
         function startElapsedTimer() {
             recStartTime = Date.now();
             clearInterval(recTimer);
@@ -185,68 +238,53 @@
                 const hh = String(Math.floor(s / 3600)).padStart(2, '0');
                 const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
                 const ss = String(s % 60).padStart(2, '0');
-                recElapsed.textContent = `${hh}:${mm}:${ss}`;
+                el.recPillText.textContent = `GRAVANDO ${hh}:${mm}:${ss}`;
             }, 1000);
         }
 
         function stopElapsedTimer() {
             clearInterval(recTimer);
-            recTimer = null;
             recStartTime = null;
         }
 
-        function renderQuickState() {
-            devicePicker.classList.toggle('hidden', quickState === 'recording');
-            recordingView.classList.toggle('hidden', quickState !== 'recording');
-        }
-
-        async function startQuickRecord() {
-            if (!select.value) {
-                statusMsg.textContent = 'Selecione um dispositivo.';
-                return;
-            }
-            btnRecord.disabled = true;
-            statusMsg.textContent = '';
+        el.btnRecord.addEventListener('click', async () => {
+            el.btnRecord.disabled = true;
             try {
-                const data = await api('/quick/start', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ devices: [select.value] })
-                });
-                currentQuick = data;
-                quickState = 'recording';
-                recDevice.textContent = select.value;
-                recElapsed.textContent = '00:00';
-                startElapsedTimer();
-                renderQuickState();
+                if (!isRecording) {
+                    const name = el.name.value.trim();
+                    if (!name) {
+                        statusMsg.textContent = 'Digite um nome para a sessão.';
+                        return;
+                    }
+                    if (!selectedDevices.length) {
+                        statusMsg.textContent = 'Selecione pelo menos um dispositivo de entrada.';
+                        return;
+                    }
+                    statusMsg.textContent = '';
+                    const data = await api('/session/start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: name, devices: selectedDevices }),
+                    });
+                    sessionId = data.session_id;
+                    isRecording = true;
+                    startElapsedTimer();
+                    updateRecordButton();
+                } else {
+                    await api(`/session/${sessionId}/take/stop`, { method: 'POST' });
+                    stopElapsedTimer();
+                    const sid = sessionId;
+                    sessionId = null;
+                    isRecording = false;
+                    updateRecordButton();
+                    window.location.href = `/sessions?id=${sid}`;
+                }
             } catch (e) {
-                statusMsg.textContent = e.message || 'Erro ao iniciar gravação.';
+                statusMsg.textContent = e.message || 'Erro ao controlar a gravação.';
             } finally {
-                btnRecord.disabled = false;
+                el.btnRecord.disabled = false;
             }
-        }
-
-        async function stopQuickRecord() {
-            if (!currentQuick) return;
-            btnStop.disabled = true;
-            statusMsg.textContent = '';
-            try {
-                await api(`/session/${currentQuick.session_id}/take/stop`, { method: 'POST' });
-                stopElapsedTimer();
-                const sid = currentQuick.session_id;
-                currentQuick = null;
-                quickState = 'idle';
-                renderQuickState();
-                window.location.href = `/sessions?id=${sid}`;
-            } catch (e) {
-                statusMsg.textContent = e.message || 'Erro ao parar gravação.';
-            } finally {
-                btnStop.disabled = false;
-            }
-        }
-
-        btnRecord.addEventListener('click', startQuickRecord);
-        btnStop.addEventListener('click', stopQuickRecord);
+        });
 
         // --- Sessões Recentes ---
         function latestTake(session) {
