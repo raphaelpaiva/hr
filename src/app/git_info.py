@@ -1,3 +1,3 @@
 BRANCH = "main"
-COMMIT = "0a73e14"
-TAG = "v0.2.0"
+COMMIT = "384f16e"
+TAG = "v0.3.0"
