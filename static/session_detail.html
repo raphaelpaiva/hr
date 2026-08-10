@@ -239,6 +239,75 @@
             }
         }
 
+        function isTakeRecording(take) {
+            return (take.recordings || []).some(r => r.state === 'recording');
+        }
+
+        async function renameTake(takeId, newName) {
+            try {
+                const updated = await api(`/session/${sessionId}/take/${takeId}/rename`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName }),
+                });
+                sessionData.takes = (sessionData.takes || []).map(t => t.id === updated.id ? updated : t);
+                renderTakes(sessionData.takes);
+            } catch (e) {
+                alert(e.message || 'Erro ao renomear a tomada.');
+            }
+        }
+
+        function attachTakeRename(el, take) {
+            if (!el || isTakeRecording(take)) return;
+
+            el.classList.add('cursor-pointer', 'hover:text-red-300', 'transition-colors');
+            el.title = 'Renomear tomada';
+
+            el.addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = take.name;
+                input.className = 'input-bg border border-custom rounded-lg px-3 py-1.5 w-full text-gray-100 font-semibold text-sm focus:outline-none focus:border-red-500/50 transition-colors';
+
+                let cancelled = false;
+
+                const done = () => {
+                    input.removeEventListener('keydown', onKey);
+                    input.removeEventListener('blur', onBlur);
+                    input.replaceWith(el);
+                    el.textContent = take.name;
+                };
+
+                const save = () => {
+                    const newName = input.value.trim();
+                    if (!cancelled && newName && newName !== take.name) {
+                        renameTake(take.id, newName);
+                    }
+                };
+
+                const onKey = (e) => {
+                    if (e.key === 'Enter') {
+                        input.blur();
+                    } else if (e.key === 'Escape') {
+                        cancelled = true;
+                        input.value = take.name;
+                        input.blur();
+                    }
+                };
+
+                const onBlur = () => {
+                    save();
+                    done();
+                };
+
+                input.addEventListener('keydown', onKey);
+                input.addEventListener('blur', onBlur);
+                el.replaceWith(input);
+                input.focus();
+                input.select();
+            });
+        }
+
         function createTakeCard(take, index) {
             const channels = (take.recordings || []).length;
             const zipUrl = `/api/v1/session/${sessionId}/take/${take.id}/zip`;
@@ -249,7 +318,7 @@
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <div class="font-mono text-gray-500 text-xs">${String(index).padStart(3, '0')}</div>
-                        <div class="text-white font-semibold truncate mt-0.5">${take.name}</div>
+                        <div class="js-take-name text-white font-semibold truncate mt-0.5">${take.name}</div>
                     </div>
                     <div class="text-gray-400 flex items-center gap-2 text-xs shrink-0 mt-0.5">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
@@ -263,6 +332,7 @@
                         Baixar (ZIP)
                     </a>
                 </div>`;
+            attachTakeRename(card.querySelector('.js-take-name'), take);
             return card;
         }
 
@@ -295,7 +365,9 @@
 
                 tr.innerHTML = `
                     <td class="px-6 md:px-8 py-6 font-mono text-gray-500">${String(take.index).padStart(3, '0')}</td>
-                    <td class="px-6 py-6 text-white font-semibold">${take.name}</td>
+                    <td class="px-6 py-6">
+                        <span class="js-take-name text-white font-semibold">${take.name}</span>
+                    </td>
                     <td class="px-6 py-6 text-gray-400 flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
                         ${channels} ${channels === 1 ? 'Canal' : 'Canais'}
@@ -308,6 +380,7 @@
                         </a>
                     </td>`;
                 el.takesBody.appendChild(tr);
+                attachTakeRename(tr.querySelector('.js-take-name'), take);
                 el.takesCards.appendChild(createTakeCard(take, take.index));
             });
         }

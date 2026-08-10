@@ -154,7 +154,8 @@ async def take_zip(session_id: str, take_id: str):
         safe_name = re.sub(r'[^A-Za-z0-9_.-]+', '_', rec.device_name)
         zf.write(rec.output_path, f"{safe_name}_{rec.id[:8]}.wav")
   buffer.seek(0)
-  filename = f"take_{take.index:03d}.zip"
+  safe_take_name = re.sub(r'[^A-Za-z0-9_.-]+', '_', take.name).strip('_') or f"take_{take.index:03d}"
+  filename = f"take_{take.index:03d}_{safe_take_name}.zip"
   return StreamingResponse(
     buffer,
     media_type="application/zip",
@@ -170,6 +171,17 @@ async def rename_session(session_id: str, payload: dict):
   session.name = name
   save_session(session)
   return session.__dict__()
+
+@v1_router.post("/session/{session_id}/take/{take_id}/rename")
+async def rename_take(session_id: str, take_id: str, payload: dict):
+  session = get_session_or_404(session_id)
+  take = get_take_or_404(session, take_id)
+  name = (payload.get('name') or '').strip()
+  if not name:
+    raise HTTPException(status_code=400, detail="Name is required")
+  take.name = name
+  save_session(session)
+  return take.__dict__()
 
 @v1_router.post("/session")
 async def create_session(payload: dict):

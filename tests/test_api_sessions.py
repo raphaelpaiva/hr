@@ -188,3 +188,59 @@ def test_session_detail_serializes_takes(client):
   take = res.json()['takes'][0]
   assert take['index'] == 1
   assert take['recordings'][0]['state'] == RecordState.RECORDING.value
+
+
+# --- Take rename ---
+
+def test_rename_take(client):
+  sid = create_session(client)
+  take = client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]}).json()
+  res = client.post(f'/api/v1/session/{sid}/take/{take["id"]}/rename', json={'name': 'Melhor Versão'})
+  assert res.status_code == 200
+  assert res.json()['name'] == 'Melhor Versão'
+
+  detail = client.get(f'/api/v1/session/{sid}').json()
+  assert detail['takes'][0]['name'] == 'Melhor Versão'
+
+
+def test_rename_take_requires_name(client):
+  sid = create_session(client)
+  take = client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]}).json()
+  assert client.post(f'/api/v1/session/{sid}/take/{take["id"]}/rename', json={'name': '   '}).status_code == 400
+  assert client.post(f'/api/v1/session/{sid}/take/{take["id"]}/rename', json={}).status_code == 400
+
+
+def test_rename_take_404_unknown(client):
+  sid = create_session(client)
+  assert client.post(f'/api/v1/session/{sid}/take/unknown/rename', json={'name': 'X'}).status_code == 404
+
+
+def test_rename_take_survives_restart(client):
+  import main
+  from app.sessions.store import get_sessions
+
+  sid = create_session(client)
+  take = client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]}).json()
+  client.post(f'/api/v1/session/{sid}/take/stop')
+  client.post(f'/api/v1/session/{sid}/take/{take["id"]}/rename', json={'name': 'Versão Final'})
+
+  main.SESSIONS = []
+  main.SESSIONS = get_sessions()
+
+  sessions = client.get('/api/v1/session').json()
+  assert sessions[0]['takes'][0]['name'] == 'Versão Final'
+
+
+def test_zip_filename_includes_take_name(client):
+  sid = create_session(client)
+  take = client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]}).json()
+  client.post(f'/api/v1/session/{sid}/take/{take["id"]}/rename', json={'name': 'Melhor Versão'})
+  res = client.get(f'/api/v1/session/{sid}/take/{take["id"]}/zip')
+  assert res.status_code == 200
+  content_disposition = res.headers['content-disposition']
+  assert 'filename=' in content_disposition
+  assert 'Melhor' in content_disposition
+
+  take = client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]}).json()
+  res = client.get(f'/api/v1/session/{sid}/take/{take["id"]}/zip')
+  assert 'Take_2' in res.headers['content-disposition']
