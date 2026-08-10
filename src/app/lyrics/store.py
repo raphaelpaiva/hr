@@ -2,7 +2,7 @@ import json
 import os
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from ..config import LYRICS_BASE_PATH
 from .lyric import Lyric
@@ -22,9 +22,6 @@ def get_lyrics() -> List[Lyric]:
       print(f"Error while loading lyric from {json_file}: {e}")
 
   return lyrics
-
-def get_lyric_by_id(lyric_id: str) -> Optional[Lyric]:
-  return next((l for l in get_lyrics() if l.id == lyric_id), None)
 
 def save_lyric(lyric: Lyric) -> None:
   LYRICS_DIR.mkdir(parents=True, exist_ok=True)
