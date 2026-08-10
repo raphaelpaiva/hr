@@ -33,7 +33,7 @@ class LyricRepository:
   def save(self, lyric: Lyric) -> None:
     atomic_write(
       self.root / f"{lyric.id}.json",
-      json.dumps(lyric.__dict__(), ensure_ascii=False),
+      json.dumps(lyric.to_dict(), ensure_ascii=False),
     )
 
   def delete(self, lyric_id: str) -> None:

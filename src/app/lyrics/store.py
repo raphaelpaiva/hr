@@ -26,7 +26,7 @@ def get_lyrics() -> List[Lyric]:
 def save_lyric(lyric: Lyric) -> None:
   LYRICS_DIR.mkdir(parents=True, exist_ok=True)
   tmp_file = LYRICS_DIR / f"{lyric.id}.json.tmp"
-  tmp_file.write_text(json.dumps(lyric.__dict__(), ensure_ascii=False))
+  tmp_file.write_text(json.dumps(lyric.to_dict(), ensure_ascii=False))
   os.replace(tmp_file, LYRICS_DIR / f"{lyric.id}.json")
 
 def delete_lyric(lyric_id: str) -> None:

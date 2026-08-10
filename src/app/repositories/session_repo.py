@@ -37,7 +37,7 @@ class SessionRepository:
   def save(self, session: Session) -> None:
     atomic_write(
       self.root / session.id / "session.json",
-      json.dumps(session.__dict__()),
+      json.dumps(session.to_dict()),
     )
 
   def delete(self, session_id: str) -> None:

@@ -1,11 +1,8 @@
 from enum import Enum
-import shutil
 import uuid
-import json
 
 from pathlib import Path
-from subprocess import PIPE, Popen
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from ..config import BASE_PATH
 from datetime import datetime
@@ -24,19 +21,19 @@ class Recording():
       self.state: RecordState          = RecordState.NEW
       self.created_at: datetime        = datetime.now()
       self.last_modification: datetime = datetime.now()
-      
+
       self.id: str          = uuid.uuid4().hex
       self.device_name: str = device_name
       self.session_id: Optional[str] = session_id
       self.take_id: Optional[str] = take_id
       self.channel: Optional[int] = channel
-      
+
       if self.session_id is None or self.take_id is None:
         raise ValueError("session_id and take_id are required.")
-      
+
       self._set_paths()
       self.error_code: Union[int, None] = None
-    
+
       self._prepare_filesystem()
     elif from_dict is not None:
       self.id = from_dict['id']
@@ -44,32 +41,28 @@ class Recording():
       self.session_id = from_dict.get('session_id')
       self.take_id = from_dict.get('take_id')
       self.channel = from_dict.get('channel')
-      
+
       if self.session_id is None or self.take_id is None:
         raise ValueError("session_id and take_id are required.")
-      
+
       self._set_paths()
       self.created_at = datetime.fromtimestamp(from_dict.get('created_at', 0.0))
-
-      if 'last_modification' not in from_dict:
-        from_dict['last_modification'] = from_dict.get('created_at', 0.0)
-      else:
-        self.last_modification = datetime.fromtimestamp(from_dict['last_modification'])
+      last_modification = from_dict.get('last_modification', from_dict.get('created_at', 0.0))
+      self.last_modification = datetime.fromtimestamp(last_modification)
 
       self.error_code = None
       if 'error_code' in from_dict:
         self.error_code = from_dict['error_code']
-      
+
       self.state = RecordState(from_dict['state'])
 
   def _set_paths(self) -> None:
     self.base_dir = Path(f"{BASE_PATH}/{self.session_id}/takes/{self.take_id}")
     self.output_path = self.base_dir / Path(f"{self.id}.wav")
-    self.json_path = self.base_dir / Path(f"{self.id}.json")
 
   def _prepare_filesystem(self) -> None:
     self.output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     if self.output_path.exists():
       raise ValueError(f"Recording file {self.output_path} already exists.")
 
@@ -79,35 +72,20 @@ class Recording():
   def mark_started(self) -> None:
     self.state = RecordState.RECORDING
     self._mark_modified()
-    self.json_path.write_text(json.dumps(self.__dict__()))
-  
+
   def mark_stopped(self) -> None:
     self.state = RecordState.STOPPED
     self._mark_modified()
-    self.json_path.write_text(json.dumps(self.__dict__()))
-  
+
   def mark_error(self, error_code: Union[int, None]) -> None:
     self.state = RecordState.ERROR
     self.error_code = error_code
     self._mark_modified()
-    self.json_path.write_text(json.dumps(self.__dict__()))
-
-  def refresh_state_from_disk(self) -> None:
-    if not self.json_path.exists():
-      return
-    try:
-      data = json.loads(self.json_path.read_text())
-      self.state = RecordState(data['state'])
-      self.error_code = data.get('error_code')
-      if 'last_modification' in data:
-        self.last_modification = datetime.fromtimestamp(data['last_modification'])
-    except (KeyError, ValueError) as e:
-      print(f"Failed to refresh recording state from {self.json_path}: {e}")
 
   def remove_files(self) -> None:
-    shutil.rmtree(self.base_dir, ignore_errors=True)
+    self.output_path.unlink(missing_ok=True)
 
-  def __dict__(self):
+  def to_dict(self):
     return {
       "id": self.id,
       "device_name": self.device_name,

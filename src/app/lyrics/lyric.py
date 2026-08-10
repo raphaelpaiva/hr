@@ -18,7 +18,7 @@ class Lyric():
     lyric.updated_at = datetime.fromtimestamp(data.get('updated_at', data['created_at']))
     return lyric
 
-  def __dict__(self):
+  def to_dict(self):
     return {
       "name": self.name,
       "id": self.id,

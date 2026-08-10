@@ -128,12 +128,12 @@ async def lyrics_reader_page():
 
 @v1_router.get("/session")
 async def list_sessions():
-  return [session.__dict__() for session in SESSIONS]
+  return [session.to_dict() for session in SESSIONS]
 
 @v1_router.get("/session/{session_id}")
 async def get_session(session_id: str):
   session = get_session_or_404(session_id)
-  return session.__dict__()
+  return session.to_dict()
 
 def start_recording_take(session: Session, devices: List[str]) -> Take:
   take = session.start_take(f"Take {len(session.takes) + 1}")
@@ -156,7 +156,7 @@ async def start_take(session_id: str, payload: Optional[dict] = None):
   if not devices:
     raise HTTPException(status_code=400, detail="No devices selected")
   take = start_recording_take(session, devices)
-  return take.__dict__()
+  return take.to_dict()
 
 @v1_router.post("/session/start")
 async def start_session(payload: Optional[dict] = None):
@@ -169,7 +169,7 @@ async def start_session(payload: Optional[dict] = None):
   session = Session(name)
   SESSIONS.append(session)
   take = start_recording_take(session, devices)
-  return {"session_id": session.id, "take": take.__dict__()}
+  return {"session_id": session.id, "take": take.to_dict()}
 
 @v1_router.post("/quick/start")
 async def quick_start(payload: Optional[dict] = None):
@@ -180,7 +180,7 @@ async def quick_start(payload: Optional[dict] = None):
   session = Session(name)
   SESSIONS.append(session)
   take = start_recording_take(session, devices)
-  return {"session_id": session.id, "take": take.__dict__()}
+  return {"session_id": session.id, "take": take.to_dict()}
 
 @v1_router.post("/session/{session_id}/take/stop")
 async def stop_take(session_id: str):
@@ -192,7 +192,7 @@ async def stop_take(session_id: str):
     if rec.state == RecordState.RECORDING:
       SOUND_SYSTEM.stop_recording(rec)
   save_session(session)
-  return take.__dict__()
+  return take.to_dict()
 
 @v1_router.get("/session/{session_id}/take/{take_id}/zip")
 async def take_zip(session_id: str, take_id: str):
@@ -221,7 +221,7 @@ async def rename_session(session_id: str, payload: dict):
     raise HTTPException(status_code=400, detail="Name is required")
   session.name = name
   save_session(session)
-  return session.__dict__()
+  return session.to_dict()
 
 @v1_router.post("/session/{session_id}/take/{take_id}/rename")
 async def rename_take(session_id: str, take_id: str, payload: dict):
@@ -232,14 +232,14 @@ async def rename_take(session_id: str, take_id: str, payload: dict):
     raise HTTPException(status_code=400, detail="Name is required")
   take.name = name
   save_session(session)
-  return take.__dict__()
+  return take.to_dict()
 
 @v1_router.post("/session")
 async def create_session(payload: dict):
   session = Session(payload['name'])
   SESSIONS.append(session)
   save_session(session)
-  return session.__dict__()
+  return session.to_dict()
 
 @v1_router.delete("/session")
 async def delete_session(payload: dict):
@@ -283,12 +283,12 @@ async def set_device_alias(payload: dict):
 @v1_router.get("/history")
 async def history():
   sessions_sorted = sorted(SESSIONS, key=lambda s: s.created_at, reverse=True)
-  return {"history": [session.__dict__() for session in sessions_sorted]}
+  return {"history": [session.to_dict() for session in sessions_sorted]}
 
 @v1_router.get("/lyrics")
 async def list_lyrics():
   lyrics_sorted = sorted(LYRICS, key=lambda l: l.name.lower())
-  return [lyric.__dict__() for lyric in lyrics_sorted]
+  return [lyric.to_dict() for lyric in lyrics_sorted]
 
 @v1_router.post("/lyrics")
 async def create_lyric(payload: dict):
@@ -298,11 +298,11 @@ async def create_lyric(payload: dict):
   lyric = Lyric(name, payload.get('text') or '')
   LYRICS.append(lyric)
   save_lyric(lyric)
-  return lyric.__dict__()
+  return lyric.to_dict()
 
 @v1_router.get("/lyrics/{lyric_id}")
 async def get_lyric(lyric_id: str):
-  return get_lyric_or_404(lyric_id).__dict__()
+  return get_lyric_or_404(lyric_id).to_dict()
 
 @v1_router.post("/lyrics/{lyric_id}")
 async def update_lyric(lyric_id: str, payload: dict):
@@ -314,7 +314,7 @@ async def update_lyric(lyric_id: str, payload: dict):
   lyric.text = payload.get('text') or ''
   lyric.updated_at = datetime.datetime.now()
   save_lyric(lyric)
-  return lyric.__dict__()
+  return lyric.to_dict()
 
 @v1_router.delete("/lyrics/{lyric_id}")
 async def delete_lyric(lyric_id: str):

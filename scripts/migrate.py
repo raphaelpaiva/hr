@@ -72,7 +72,6 @@ def migrate(root=ROOT, legacy=LEGACY):
         dst_wav = take_dir / f'{rid}.wav'
         if src_wav.exists() and not dst_wav.exists():
           shutil.move(str(src_wav), str(dst_wav))
-        (take_dir / f'{rid}.json').write_text(json.dumps(rec))
         shutil.rmtree(str(legacy_path / rid), ignore_errors=True)
     (sdir / 'session.json').write_text(json.dumps(data))
     print(f"migrated session {sdir.name}")
@@ -98,7 +97,6 @@ def migrate(root=ROOT, legacy=LEGACY):
       dst_wav = take_dir / f'{rid}.wav'
       if src_wav.exists() and not dst_wav.exists():
         shutil.move(str(src_wav), str(dst_wav))
-      (take_dir / f'{rid}.json').write_text(json.dumps(rec_meta))
       session_data = {
         'name': f'Migrada {_ts(created_at)}',
         'id': rid,

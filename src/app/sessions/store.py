@@ -23,7 +23,6 @@ def get_sessions() -> List[Session]:
           try:
             data = json.load(f)
             session = Session.from_dict(data)
-            session.refresh_recording_states()
             sessions.append(session)
           except (KeyError, ValueError) as e:
             print(f"Error while loading session from {json_file}: {e}")
@@ -34,7 +33,7 @@ def save_session(session: Session) -> None:
   session_dir = SESSIONS_DIR / session.id
   session_dir.mkdir(parents=True, exist_ok=True)
   tmp_file = session_dir / "session.json.tmp"
-  tmp_file.write_text(json.dumps(session.__dict__()))
+  tmp_file.write_text(json.dumps(session.to_dict()))
   os.replace(tmp_file, session_dir / "session.json")
 
 def delete_session(session: Session) -> None:

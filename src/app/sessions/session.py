@@ -23,13 +23,13 @@ class Take():
     take.recordings = [Recording(from_dict=rec) for rec in data.get('recordings', [])]
     return take
 
-  def __dict__(self):
+  def to_dict(self):
     return {
       "name": self.name,
       "id": self.id,
       "index": self.index,
       "created_at": self.created_at.timestamp(),
-      "recordings": [rec.__dict__() for rec in self.recordings],
+      "recordings": [rec.to_dict() for rec in self.recordings],
     }
 
 class Session():
@@ -47,11 +47,6 @@ class Session():
     self.takes.append(take)
     return take
 
-  def refresh_recording_states(self) -> None:
-    for take in self.takes:
-      for recording in take.recordings:
-        recording.refresh_state_from_disk()
-
   @classmethod
   def from_dict(cls, data: dict):
     session = cls(data['name'])
@@ -61,11 +56,11 @@ class Session():
     session.takes = [Take.from_dict(t) for t in data.get('takes', [])]
     return session
 
-  def __dict__(self):
+  def to_dict(self):
     return {
       "name": self.name,
       "id": self.id,
       "created_at": self.created_at.timestamp(),
       "devices": self.devices,
-      "takes": [take.__dict__() for take in self.takes],
+      "takes": [take.to_dict() for take in self.takes],
     }
