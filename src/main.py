@@ -12,6 +12,7 @@ from subprocess import run
 
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 from app.sound_system.recording import Recording, RecordState
 
@@ -40,6 +41,16 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 v1_router = APIRouter(prefix="/api/v1", tags=["v1"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+from app.exceptions import NotFound, ValidationError
+
+@app.exception_handler(NotFound)
+async def not_found_handler(request, exc: NotFound):
+  return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+@app.exception_handler(ValidationError)
+async def validation_error_handler(request, exc: ValidationError):
+  return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 SOUND_SYSTEM: SoundSystem = AlsaSoundSystem()
 # SOUND_SYSTEM: SoundSystem = DummyAlsaSoundSystem()
