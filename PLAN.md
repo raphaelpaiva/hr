@@ -101,3 +101,82 @@ Suite inteira roda offline no `DummyAlsaSoundSystem` + temp dirs — sem hardwar
   porque `Recording` perde o modo standalone e muitos testes existentes precisam passar `session_id`/`take_id`.
 - **Nome da raiz**: `sessions/` (recomendado) vs `data/`.
 - **Sessão anônima**: decidir nome automático exato e se a UI sugere rename após gravação rápida.
+
+---
+
+# Plano: gravação por canal (1 arquivo mono por canal) + correção de perda no stop
+
+## Contexto
+
+A Behringer UPHORIA UMC22 (2 entradas) é exposta pelo ALSA como **um único PCM estéreo**
+(`plughw:CARD=CODEC,DEV=0`). O sistema grava **um arquivo por dispositivo ALSA**, então 1 interface de
+2 canais = **1 .wav estéreo** — e o usuário espera **1 arquivo por canal físico** para verificar cada microfone.
+
+Além disso, `AlsaSoundSystem.start_recording` (src/app/sound_system/sound_system.py:35) tem `-ac 2`
+**hard-coded**: interface mono vira estéreo (canal duplicado); interface >2 canais é colapsada em estéreo,
+descartando os canais extras. Não há detecção de canais em lugar nenhum.
+
+Bug real observado no sistema ao vivo: **perda de ~0,75s no fim de toda gravação** (o ffmpeg descarta o
+ring buffer do ALSA ao parar com `q`). Em tomadas curtas devora o áudio inteiro — Take 1 de 0,74s gerou um
+wav da UMC22 com **78 bytes (vazio)**.
+
+## Decisões registradas
+
+- **Um arquivo mono por canal físico** de cada dispositivo selecionado.
+- Detecção de canais via `arecord -D <hw:dev> --dump-hw-params /dev/null`, parseando `CHANNELS:` → max.
+  - O probe **sempre no `hw:`** (derivado de `plughw:`): o `plughw:` é um wrapper "plug" e infla os limites
+    (`CHANNELS: [1 10000]`, `RATE: [4000 4294967295]`) — pegar o max ali tentaria gravar 10.000 canais.
+  - Ignorar o exit code do `arecord` (imprime os params e ainda sai com erro `Sample format non available`).
+  - Guarda de sanidade: max > 32 → considera falha.
+- Fallback do probe falho: **2 canais**, com log de aviso (validar no Pi).
+- **Cache do nº de canais por dispositivo** no `SoundSystem`.
+- **Um processo ffmpeg por dispositivo** com `channelsplit` → N saídas mono (abrir o mesmo device 2x dá EBUSY).
+- Correção da perda no stop: `-buffer_size 100000 -period_size 25000` (µs) no input ALSA do ffmpeg.
+- `Recording` ganha `channel` (`Optional[int]`, default `None`) — compatível com `session.json` legado no disco.
+- Python 3.9: sem `X | None`; `typing.Optional`/`Union`; indentação de 2 espaços.
+
+## Referência de validação (saídas reais do Pi)
+
+- `plughw:CARD=CODEC,DEV=0 --dump-hw-params` → `CHANNELS: [1 10000]` (INUTILIZÁVEL, plug).
+- `hw:CARD=CODEC,DEV=0 --dump-hw-params` → `CHANNELS: [1 2]` → **2** ✓ (formato real do parser).
+- Linhas possíveis no parse: `CHANNELS: [1 2]` (faixa→max), `CHANNELS: [2 2]` (fixo→2), `CHANNELS: 2` (único).
+
+## A implementar (próxima sessão)
+
+1. **`src/app/sound_system/recording.py`** — campo `channel` (`Optional[int]`, default `None`), em
+   `__dict__()` e `from_dict` (legado fica `None`). Paths permanecem únicos (cada canal tem `id` próprio).
+2. **`src/app/sound_system/sound_system.py`**:
+   - `device_channels(device_name) -> int` (base + `AlsaSoundSystem`): deriva `hw:` de `plughw:`, roda o
+     probe, parseia, aplica guardas e cache.
+   - `parse_arecord_hw_params(output) -> Optional[int]` (função pura, testável).
+   - `start_recording(recordings)` **em lote** (todos os canais de um device): um ffmpeg
+     `-f alsa -channels <n> -buffer_size 100000 -period_size 25000 -i <dev>`; n=1 → `-ac 1 saida.wav`;
+     n≥2 → `-filter_complex channelsplit[c0][c1]…` + `-map [c{i}] -ac 1 saida_i.wav`. Remove o `-ac 2`.
+   - `stop_recording(rec)` idempotente por chave `session_id/device_name` (marca o grupo todo).
+   - `DummyAlsaSoundSystem`: `device_channels` determinístico (`plughw:CARD=CODEC,DEV=0` → 2, demais → 1);
+     start/stop em lote.
+3. **`src/main.py`** — `start_recording_take` cria N Recordings por device (`channel=i`);
+   `take_zip` passa `channel` para `make_wav_name` → sufixo `_ch{i}`.
+   `src/app/device_aliases.py` — `make_wav_name(..., channel=None)`.
+4. **`static/session_detail.html`** — player/hints da audição com sufixo ` · Ch{i+1}` quando `channel`
+   presente; contadores de "Canais" já refletem o total de recordings. Conferir `index.html`/`session.html`.
+5. **Testes** — parser (`[1 2]`, fixo, único, lixo), `device_channels` (Dummy), contagens ajustadas
+   (1 device CODEC → 2 recordings, `channel` 0/1; `[CODEC, null]` → 3; states multi-take; zip `_ch1`),
+   round-trip `from_dict` legado, `make_wav_name(..., channel=2)`.
+6. **`AGENTS.md`** — modelo por canal, batch `start_recording`, `device_channels`.
+
+## Verificação
+
+`./dev.sh` (reconstrói o venv) + `venv/bin/python -m pytest`. Suite offline (Dummy + temp dirs), sem hardware.
+
+## Validação no Pi
+
+- Take de ~10s → arquivo com ~10s de áudio (perda ≤ ~0,1s).
+- UMC22: **2 arquivos mono (Ch1/Ch2)**, tocáveis no player da UI; zip com `_ch1`/`_ch2`.
+- Interface multichannel: **N arquivos mono**, N players, N arquivos no zip.
+
+## Pontos em aberto
+
+- Formato do `CHANNELS:` da interface multichannel (rodar `arecord -D hw:CARD=<X>,DEV=0 --dump-hw-params /dev/null`).
+- Fallback default 2 (confirmado tacitamente; revalidar no Pi).
+- `channelsplit` sem layout nomeado (3/5/7 canais) — os casos comuns (1/2/4/6/8) têm layout nomeado.

@@ -1,3 +1,13 @@
+## v0.3.0 (2026-08-10)
+
+### Feat
+
+- **takes**: play each take recording inline to verify capture
+- **settings**: name USB devices to label downloaded wavs
+- **takes**: click-to-rename takes and name ZIPs after them
+- **session**: auto-name sessions with date/time when blank
+- **ui**: make main screen the new-session recording screen
+
 ## v0.2.0 (2026-08-08)
 
 ### Feat

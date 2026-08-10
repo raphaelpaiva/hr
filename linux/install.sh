@@ -6,6 +6,10 @@ sudo sed "s/username/${USERNAME}/g" linux/sudoers.d/shutdown > /etc/sudoers.d/sh
 sudo chmod 440 /etc/sudoers.d/shutdown
 echo "Shutdown permissions installed."
 
+sudo sed "s/username/${USERNAME}/g" linux/sudoers.d/hr > /etc/sudoers.d/hr
+sudo chmod 440 /etc/sudoers.d/hr
+echo "HR systemd permissions installed."
+
 sudo sed "s/username/${USERNAME}/g" systemd/hr.service > /etc/systemd/system/hr.service
 sudo systemctl daemon-reload
 sudo systemctl enable hr.service
