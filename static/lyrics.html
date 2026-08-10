@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Gravador Sem Cabeça - Letras</title>
+    <script src="/static/js/tailwind.config.js"></script>
+    <script src="/static/js/tailwind.min.js"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/app.js"></script>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header id="app-header" data-page="lyrics"></header>
+
+    <main class="flex-1 max-w-5xl mx-auto w-full px-4 md:px-6 py-8 md:py-10 flex flex-col gap-8">
+
+        <div class="flex items-center justify-between px-2">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-white">Letras</h1>
+                <p class="text-sm text-gray-500 mt-1">Cadastre as letras das músicas para o vocalista ler no celular.</p>
+            </div>
+        </div>
+
+        <!-- Nova/Editar Letra -->
+        <div class="card-bg rounded-3xl border border-custom p-6 md:p-10">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 id="formTitle" class="text-lg font-bold text-white">Nova Letra</h2>
+                    <p class="text-xs text-gray-500 mt-1" id="formSubtitle">Nomeie a música e cole a letra abaixo.</p>
+                </div>
+                <button id="btnCancelEdit" class="hidden input-bg border border-custom hover:border-gray-500 text-gray-400 hover:text-white text-sm font-semibold py-2 px-4 rounded-full transition-colors">
+                    Cancelar
+                </button>
+            </div>
+
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Nome da Música</label>
+                    <input id="lyricName" type="text" placeholder="Ex: Amanhã, Meu Bem, Ela Partiu..."
+                           class="input-bg border border-custom rounded-xl w-full py-4 pl-5 pr-5 text-gray-100 font-medium focus:outline-none focus:border-red-500/50 transition-colors">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Letra</label>
+                    <textarea id="lyricText" rows="10" placeholder="Escreva ou cole a letra aqui. As quebras de linha são preservadas."
+                              class="input-bg border border-custom rounded-xl w-full py-4 pl-5 pr-5 text-gray-100 font-medium leading-relaxed focus:outline-none focus:border-red-500/50 transition-colors resize-y"></textarea>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button id="btnSave" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-full text-sm transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span id="btnSaveText">Salvar Letra</span>
+                    </button>
+                    <p id="formMsg" class="text-sm text-red-500"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Letras -->
+        <div class="card-bg rounded-3xl border border-custom overflow-hidden">
+            <div class="flex justify-between items-center mb-4 px-6 md:px-8 pt-6">
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    <h3 class="text-lg font-bold text-white">Letras Cadastradas</h3>
+                </div>
+                <button onclick="loadLyrics()" class="input-bg border border-custom hover:border-gray-500 text-gray-400 hover:text-white text-sm font-semibold py-2 px-4 rounded-full transition-colors">
+                    ↻ Atualizar
+                </button>
+            </div>
+
+            <div class="overflow-x-auto hidden md:block">
+                <table class="w-full text-left border-collapse min-w-[640px]">
+                    <thead>
+                        <tr class="border-y border-custom text-[10px] uppercase tracking-widest text-gray-500 bg-surface/50">
+                            <th class="px-6 md:px-8 py-4 font-bold">Música</th>
+                            <th class="px-6 py-4 font-bold">Atualizada em</th>
+                            <th class="px-6 md:px-8 py-4 font-bold text-right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lyricsTable" class="text-sm font-medium text-gray-300"></tbody>
+                </table>
+            </div>
+            <div id="lyricsCards" class="md:hidden flex flex-col gap-3 p-4 md:p-6"></div>
+
+            <div id="emptyState" class="hidden p-12 text-center">
+                <div class="w-14 h-14 mx-auto rounded-full bg-card border border-custom flex items-center justify-center text-2xl">🎤</div>
+                <p class="mt-4 text-gray-500 font-medium">Nenhuma letra cadastrada ainda. Crie a primeira acima!</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="py-8 text-center text-xs text-gray-500 font-medium">
+        <span id="app-git-info"></span>
+    </footer>
+
+    <script>
+        let editingId = null;
+
+        const el = {
+            formTitle: document.getElementById('formTitle'),
+            formSubtitle: document.getElementById('formSubtitle'),
+            btnCancelEdit: document.getElementById('btnCancelEdit'),
+            name: document.getElementById('lyricName'),
+            text: document.getElementById('lyricText'),
+            btnSave: document.getElementById('btnSave'),
+            btnSaveText: document.getElementById('btnSaveText'),
+            formMsg: document.getElementById('formMsg'),
+            tableBody: document.querySelector('#lyricsTable'),
+            cardsContainer: document.querySelector('#lyricsCards'),
+            emptyState: document.getElementById('emptyState'),
+        };
+
+        function setFormMode(lyric) {
+            if (lyric) {
+                editingId = lyric.id;
+                el.formTitle.textContent = 'Editar Letra';
+                el.formSubtitle.textContent = 'Altere o nome ou o texto e salve as alterações.';
+                el.btnSaveText.textContent = 'Salvar Alterações';
+                el.btnCancelEdit.classList.remove('hidden');
+                el.name.value = lyric.name;
+                el.text.value = lyric.text;
+            } else {
+                editingId = null;
+                el.formTitle.textContent = 'Nova Letra';
+                el.formSubtitle.textContent = 'Nomeie a música e cole a letra abaixo.';
+                el.btnSaveText.textContent = 'Salvar Letra';
+                el.btnCancelEdit.classList.add('hidden');
+                el.name.value = '';
+                el.text.value = '';
+            }
+        }
+
+        function showFormMsg(msg) {
+            el.formMsg.textContent = msg || '';
+        }
+
+        async function saveLyric() {
+            const name = el.name.value.trim();
+            if (!name) {
+                showFormMsg('Informe o nome da música.');
+                return;
+            }
+            showFormMsg('');
+            try {
+                const body = JSON.stringify({ name: name, text: el.text.value });
+                if (editingId) {
+                    await api(`/lyrics/${editingId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: body,
+                    });
+                } else {
+                    await api('/lyrics', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: body,
+                    });
+                }
+                setFormMode(null);
+                loadLyrics();
+            } catch (e) {
+                showFormMsg(e.message || 'Erro ao salvar a letra.');
+            }
+        }
+
+        el.btnSave.addEventListener('click', saveLyric);
+        el.btnCancelEdit.addEventListener('click', () => setFormMode(null));
+
+        el.name.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') saveLyric();
+        });
+
+        function readerUrl(lyricId) {
+            return `/lyrics/read?id=${lyricId}`;
+        }
+
+        async function deleteLyric(lyricId, name) {
+            if (!confirm(`Excluir a letra "${name}"?`)) return;
+            try {
+                await api(`/lyrics/${lyricId}`, { method: 'DELETE' });
+                if (editingId === lyricId) setFormMode(null);
+                loadLyrics();
+            } catch (e) {
+                alert(e.message || 'Erro ao excluir a letra.');
+            }
+        }
+
+        function createLyricRow(lyric) {
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-custom hover:bg-[#2a2424] transition-colors";
+
+            const tdName = document.createElement('td');
+            tdName.className = 'px-6 md:px-8 py-5';
+            const link = document.createElement('a');
+            link.href = readerUrl(lyric.id);
+            link.className = 'text-sm font-bold text-red-400 hover:text-red-300 transition-colors inline-flex items-center gap-2';
+            link.innerHTML = `<svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>${lyric.name}`;
+            tdName.appendChild(link);
+            tr.appendChild(tdName);
+
+            const tdUpdated = document.createElement('td');
+            tdUpdated.className = 'px-6 py-5 whitespace-nowrap text-gray-400 font-mono text-xs';
+            tdUpdated.textContent = formatTimestamp(lyric.updated_at);
+            tr.appendChild(tdUpdated);
+
+            const tdActions = document.createElement('td');
+            tdActions.className = 'px-6 md:px-8 py-5 whitespace-nowrap text-right';
+            const divActions = document.createElement('div');
+            divActions.className = 'flex items-center justify-end gap-2';
+
+            const btnRead = document.createElement('a');
+            btnRead.href = readerUrl(lyric.id);
+            btnRead.className = 'w-9 h-9 flex items-center justify-center bg-surface text-cyan-400 rounded-lg border border-custom hover:border-cyan-500 transition-colors';
+            btnRead.title = 'Ler letra';
+            btnRead.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>';
+            divActions.appendChild(btnRead);
+
+            const btnEdit = document.createElement('button');
+            btnEdit.className = 'w-9 h-9 flex items-center justify-center bg-surface text-gray-400 rounded-lg border border-custom hover:border-gray-500 hover:text-white transition-colors';
+            btnEdit.title = 'Editar letra';
+            btnEdit.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>';
+            btnEdit.addEventListener('click', () => {
+                setFormMode(lyric);
+                el.name.focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            divActions.appendChild(btnEdit);
+
+            const btnDelete = document.createElement('button');
+            btnDelete.className = 'w-9 h-9 flex items-center justify-center bg-surface text-red-500/70 rounded-lg border border-custom hover:border-red-500/50 hover:text-red-400 transition-colors';
+            btnDelete.title = 'Excluir letra';
+            btnDelete.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+            btnDelete.addEventListener('click', () => deleteLyric(lyric.id, lyric.name));
+            divActions.appendChild(btnDelete);
+
+            tdActions.appendChild(divActions);
+            tr.appendChild(tdActions);
+
+            return tr;
+        }
+
+        function createLyricCard(lyric) {
+            const card = document.createElement('div');
+            card.className = 'bg-surface border border-custom rounded-2xl p-4';
+            card.innerHTML = `
+                <div class="flex items-start justify-between gap-3">
+                    <a href="${readerUrl(lyric.id)}" class="min-w-0 inline-flex items-center gap-2 text-sm font-bold text-red-400 hover:text-red-300 transition-colors">
+                        <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        <span class="truncate">${lyric.name}</span>
+                    </a>
+                    <span class="text-red-500/70 shrink-0" title="Excluir letra">
+                        <button class="js-delete w-8 h-8 flex items-center justify-center rounded-lg border border-custom hover:border-red-500/50 hover:text-red-400 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </span>
+                </div>
+                <div class="mt-3 text-gray-400 font-mono text-xs">${formatTimestamp(lyric.updated_at)}</div>
+                <div class="mt-3 flex items-center gap-2">
+                    <a href="${readerUrl(lyric.id)}" class="input-bg border border-custom hover:border-gray-500 text-cyan-400 px-4 py-2 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        Ler
+                    </a>
+                    <button class="js-edit input-bg border border-custom hover:border-gray-500 text-gray-300 px-4 py-2 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
+                        Editar
+                    </button>
+                </div>`;
+            card.querySelector('.js-edit').addEventListener('click', () => {
+                setFormMode(lyric);
+                el.name.focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            card.querySelector('.js-delete').addEventListener('click', () => deleteLyric(lyric.id, lyric.name));
+            return card;
+        }
+
+        async function loadLyrics() {
+            try {
+                const lyrics = await api('/lyrics');
+                el.tableBody.innerHTML = '';
+                el.cardsContainer.innerHTML = '';
+
+                if (!lyrics.length) {
+                    el.emptyState.classList.remove('hidden');
+                    return;
+                }
+
+                el.emptyState.classList.add('hidden');
+
+                lyrics.forEach(lyric => {
+                    el.tableBody.appendChild(createLyricRow(lyric));
+                    el.cardsContainer.appendChild(createLyricCard(lyric));
+                });
+            } catch (e) {
+                showFormMsg('Erro ao carregar letras.');
+            }
+        }
+
+        window.matchMedia('(min-width: 768px)').addEventListener('change', loadLyrics);
+
+        loadLyrics();
+    </script>
+</body>
+</html>

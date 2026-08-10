@@ -25,12 +25,16 @@ from app.sound_system.sound_system import AlsaSoundSystem, SoundSystem, DummyAls
 from app.sessions.session import Session, Take
 from app.sessions.store import delete_session as delete_session_store
 from app.sessions.store import get_sessions, save_session
+from app.lyrics.lyric import Lyric
+from app.lyrics.store import delete_lyric as delete_lyric_store
+from app.lyrics.store import get_lyrics, save_lyric
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  global SESSIONS, DEVICE_ALIASES
+  global SESSIONS, DEVICE_ALIASES, LYRICS
   SESSIONS = get_sessions()
   DEVICE_ALIASES = load_aliases()
+  LYRICS = get_lyrics()
   yield
 
 app = FastAPI(lifespan=lifespan)
@@ -41,6 +45,7 @@ SOUND_SYSTEM: SoundSystem = AlsaSoundSystem()
 # SOUND_SYSTEM: SoundSystem = DummyAlsaSoundSystem()
 SESSIONS: List[Session] = []
 DEVICE_ALIASES: Dict[str, str] = {}
+LYRICS: List[Lyric] = []
 
 def find_session_by_id(session_id: str) -> Optional[Session]:
   return next((s for s in SESSIONS if s.id == session_id), None)
@@ -62,6 +67,12 @@ def get_active_take(session: Session) -> Optional[Take]:
     if any(rec.state == RecordState.RECORDING for rec in take.recordings):
       return take
   return None
+
+def get_lyric_or_404(lyric_id: str) -> Lyric:
+  lyric = next((l for l in LYRICS if l.id == lyric_id), None)
+  if not lyric:
+    raise HTTPException(status_code=404, detail="Lyric not found")
+  return lyric
 
 @app.get("/")
 async def root():
@@ -89,6 +100,20 @@ async def settings():
     settings_html = f.read()
   
   return HTMLResponse(content=settings_html, status_code=200)
+
+@app.get("/lyrics")
+async def lyrics_page():
+  with open("static/lyrics.html", "r") as f:
+    lyrics_html = f.read()
+  
+  return HTMLResponse(content=lyrics_html, status_code=200)
+
+@app.get("/lyrics/read")
+async def lyrics_reader_page():
+  with open("static/lyrics_reader.html", "r") as f:
+    reader_html = f.read()
+  
+  return HTMLResponse(content=reader_html, status_code=200)
 
 @v1_router.get("/session")
 async def list_sessions():
@@ -243,6 +268,45 @@ async def set_device_alias(payload: dict):
 async def history():
   sessions_sorted = sorted(SESSIONS, key=lambda s: s.created_at, reverse=True)
   return {"history": [session.__dict__() for session in sessions_sorted]}
+
+@v1_router.get("/lyrics")
+async def list_lyrics():
+  lyrics_sorted = sorted(LYRICS, key=lambda l: l.name.lower())
+  return [lyric.__dict__() for lyric in lyrics_sorted]
+
+@v1_router.post("/lyrics")
+async def create_lyric(payload: dict):
+  name = (payload.get('name') or '').strip()
+  if not name:
+    raise HTTPException(status_code=400, detail="Name is required")
+  lyric = Lyric(name, payload.get('text') or '')
+  LYRICS.append(lyric)
+  save_lyric(lyric)
+  return lyric.__dict__()
+
+@v1_router.get("/lyrics/{lyric_id}")
+async def get_lyric(lyric_id: str):
+  return get_lyric_or_404(lyric_id).__dict__()
+
+@v1_router.post("/lyrics/{lyric_id}")
+async def update_lyric(lyric_id: str, payload: dict):
+  lyric = get_lyric_or_404(lyric_id)
+  name = (payload.get('name') or '').strip()
+  if not name:
+    raise HTTPException(status_code=400, detail="Name is required")
+  lyric.name = name
+  lyric.text = payload.get('text') or ''
+  lyric.updated_at = datetime.datetime.now()
+  save_lyric(lyric)
+  return lyric.__dict__()
+
+@v1_router.delete("/lyrics/{lyric_id}")
+async def delete_lyric(lyric_id: str):
+  global LYRICS
+  get_lyric_or_404(lyric_id)
+  LYRICS = [l for l in LYRICS if l.id != lyric_id]
+  delete_lyric_store(lyric_id)
+  return {"status": "deleted", "id": lyric_id}
 
 @v1_router.get("/result/{recording_id}", response_class=FileResponse)
 async def result(recording_id: str):

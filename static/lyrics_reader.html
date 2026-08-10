@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Gravador Sem Cabeça - Leitura de Letra</title>
+    <script src="/static/js/tailwind.config.js"></script>
+    <script src="/static/js/tailwind.min.js"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/keep-awake.js"></script>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Barra superior minimalista -->
+    <div class="border-b border-custom bg-surface">
+        <div class="max-w-3xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-3">
+            <a href="/lyrics" class="text-sm text-gray-400 hover:text-white transition-colors font-medium inline-flex items-center gap-2 w-fit shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                Letras
+            </a>
+
+            <div class="flex items-center gap-2 md:gap-3 min-w-0">
+                <span id="lyricTitle" class="text-sm md:text-base font-bold text-white truncate">Carregando…</span>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+                <span id="awakePill" class="hidden bg-red-500/10 text-red-400 text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-full border border-red-500/20 items-center gap-2">
+                    <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                    TELA LIGADA
+                </span>
+                <div class="flex items-center rounded-full overflow-hidden border border-custom bg-input-bg" style="background-color:#1a1515">
+                    <button id="btnFontDown" class="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white transition-colors" title="Diminuir letra">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6"></path></svg>
+                    </button>
+                    <span id="fontSizeLabel" class="text-xs text-gray-500 font-mono w-9 text-center">Aa</span>
+                    <button id="btnFontUp" class="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white transition-colors" title="Aumentar letra">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Corpo da letra -->
+    <main class="flex-1 flex flex-col">
+        <div id="wakeHint" class="hidden bg-amber-500/10 border-b border-amber-500/20 text-amber-400 text-xs font-semibold text-center py-2 px-4">
+            Toque na tela para manter a tela ligada enquanto lê.
+        </div>
+
+        <div class="max-w-3xl mx-auto w-full px-5 md:px-8 py-8 md:py-12">
+            <div id="lyricText"
+                 class="whitespace-pre-line text-gray-100 leading-relaxed"
+                 style="font-size: 1.5rem;"></div>
+        </div>
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="py-8 text-center text-xs text-gray-500 font-medium">
+        <span id="app-git-info"></span>
+    </footer>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const lyricId = urlParams.get('id');
+
+        if (!lyricId) {
+            alert("ID da letra não encontrado!");
+            window.location.href = '/lyrics';
+        }
+
+        const el = {
+            title: document.getElementById('lyricTitle'),
+            text: document.getElementById('lyricText'),
+            wakeHint: document.getElementById('wakeHint'),
+            awakePill: document.getElementById('awakePill'),
+            fontSizeLabel: document.getElementById('fontSizeLabel'),
+            btnFontUp: document.getElementById('btnFontUp'),
+            btnFontDown: document.getElementById('btnFontDown'),
+        };
+
+        const MIN_FONT = 1.25;
+        const MAX_FONT = 3.5;
+        const STEP = 0.25;
+        const FONT_KEY = 'hr_lyric_font_size';
+
+        function loadFontSize() {
+            const saved = parseFloat(localStorage.getItem(FONT_KEY));
+            return isNaN(saved) ? 1.5 : Math.min(MAX_FONT, Math.max(MIN_FONT, saved));
+        }
+
+        function applyFontSize(size) {
+            el.text.style.fontSize = size + 'rem';
+            el.fontSizeLabel.textContent = size.toFixed(2).replace('.', ',') + 'rem';
+        }
+
+        function setFontSize(size) {
+            localStorage.setItem(FONT_KEY, size);
+            applyFontSize(size);
+        }
+
+        el.btnFontUp.addEventListener('click', () => {
+            setFontSize(Math.min(MAX_FONT, loadFontSize() + STEP));
+        });
+
+        el.btnFontDown.addEventListener('click', () => {
+            setFontSize(Math.max(MIN_FONT, loadFontSize() - STEP));
+        });
+
+        async function loadLyric() {
+            try {
+                const lyric = await api(`/lyrics/${lyricId}`);
+                document.title = `O Gravador Sem Cabeça - ${lyric.name}`;
+                el.title.textContent = lyric.name;
+                el.text.textContent = lyric.text || 'Sem letra cadastrada.';
+            } catch (e) {
+                alert(e.message || 'Erro ao carregar a letra.');
+                window.location.href = '/lyrics';
+            }
+        }
+
+        // --- Tela ligada ---
+        let awakeEnabled = false;
+
+        function renderAwakeStatus(active) {
+            awakeEnabled = active;
+            el.awakePill.classList.toggle('hidden', !active);
+            el.awakePill.classList.toggle('flex', active);
+            el.wakeHint.classList.toggle('hidden', active);
+        }
+
+        keepAwake.onStatusChange(renderAwakeStatus);
+        renderAwakeStatus(false);
+
+        // O fallback de mídia silenciosa precisa de um gesto do usuário.
+        const primeAwake = () => {
+            keepAwake.enable();
+            window.removeEventListener('touchstart', primeAwake);
+            window.removeEventListener('pointerdown', primeAwake);
+        };
+        window.addEventListener('touchstart', primeAwake, { passive: true });
+        window.addEventListener('pointerdown', primeAwake, { passive: true });
+
+        applyFontSize(loadFontSize());
+        loadLyric();
+    </script>
+</body>
+</html>

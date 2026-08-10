@@ -53,3 +53,31 @@ def test_inter_font_is_bundled():
 
 def test_new_interface_mockup_removed():
   assert not (STATIC / 'newInterface.html').exists()
+
+
+# Atributos/métodos padrão de elementos DOM que podem aparecer como `el.X`
+# sem ser uma chave do objeto `el` (ex.: el.addEventListener, el.textContent).
+DOM_API = {
+  'addEventListener', 'removeEventListener', 'classList', 'title', 'value',
+  'disabled', 'focus', 'blur', 'select', 'textContent', 'style', 'readOnly',
+  'innerHTML', 'querySelector', 'querySelectorAll', 'replaceWith',
+}
+
+
+def test_inline_scripts_el_references_resolve():
+  for page in HTML_PAGES:
+    html = page.read_text()
+    for m in re.finditer(r'<script>([\s\S]*?)</script>', html):
+      src = m.group(1)
+      if 'const el = {' not in src:
+        continue
+      el_match = re.search(r'const el = \{(.*?)\};', src, flags=re.DOTALL)
+      assert el_match, f'{page.name}: could not parse el object'
+      keys = set(re.findall(r'(\w+)\s*:', el_match.group(1)))
+      clean = re.sub(r'/\*.*?\*/', '', src, flags=re.DOTALL)
+      clean = re.sub(r'//[^\n]*', '', clean)
+      clean = re.sub(r'const el = \{.*?\};', '', clean, flags=re.DOTALL)
+      for use in re.findall(r'\bel\.(\w+)', clean):
+        assert use in keys or use in DOM_API, \
+          f'{page.name}: el.{use} used but not defined in the el object'
+

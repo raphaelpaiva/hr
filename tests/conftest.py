@@ -7,6 +7,7 @@ import app.config
 import app.device_aliases
 import app.sound_system.recording
 import app.sessions.store
+import app.lyrics.store
 import main
 from app.sound_system.sound_system import DummyAlsaSoundSystem
 
@@ -18,6 +19,7 @@ def tmp_recordings(tmp_path, monkeypatch):
   monkeypatch.setattr(app.sound_system.recording, 'BASE_PATH', str(tmp_path))
   monkeypatch.setattr(main, 'BASE_PATH', str(tmp_path))
   monkeypatch.setattr(app.sessions.store, 'SESSIONS_DIR', tmp_path)
+  monkeypatch.setattr(app.lyrics.store, 'LYRICS_DIR', tmp_path / 'lyrics')
   monkeypatch.setattr(app.device_aliases, 'ALIASES_FILE', tmp_path / 'device_aliases.json')
   return tmp_path
 
@@ -36,5 +38,6 @@ def client(tmp_recordings, monkeypatch):
   monkeypatch.setattr(main, 'SOUND_SYSTEM', DummyAlsaSoundSystem())
   monkeypatch.setattr(main, 'SESSIONS', [])
   monkeypatch.setattr(main, 'DEVICE_ALIASES', {})
+  monkeypatch.setattr(main, 'LYRICS', [])
   with TestClient(main.app) as c:
     yield c
