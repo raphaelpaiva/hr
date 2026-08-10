@@ -98,7 +98,8 @@ function renderHeader() {
 
   const links = `
     <a href="/" class="text-sm font-medium ${page === 'dashboard' ? 'text-white' : 'text-gray-400 hover:text-white'} transition-colors">Painel</a>
-    <a href="/sessions" class="text-sm font-medium ${page === 'sessions' || page === 'session-detail' ? 'text-white' : 'text-gray-400 hover:text-white'} transition-colors">Sessões</a>`;
+    <a href="/sessions" class="text-sm font-medium ${page === 'sessions' || page === 'session-detail' ? 'text-white' : 'text-gray-400 hover:text-white'} transition-colors">Sessões</a>
+    <a href="/settings" class="text-sm font-medium ${page === 'settings' ? 'text-white' : 'text-gray-400 hover:text-white'} transition-colors">Configurações</a>`;
 
   header.innerHTML = `
     <nav class="border-b border-custom bg-surface">

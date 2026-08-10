@@ -150,12 +150,15 @@
         const emptyState = document.getElementById('emptyState');
 
         // --- Dispositivos ---
+        function deviceLabel(name) {
+            const dev = availableDevices.find(d => d.name === name);
+            return dev && dev.alias ? `${dev.alias} · ${dev.name}` : name;
+        }
+
         async function loadDevices() {
             try {
                 const data = await api('/devices');
-                availableDevices = (data.devices || [])
-                    .filter(d => d.name.startsWith('plughw'))
-                    .map(d => d.name);
+                availableDevices = (data.devices || []).filter(d => d.name.startsWith('plughw'));
                 renderDeviceSelect();
             } catch (e) {
                 el.deviceSelect.innerHTML = '<option value="all" class="bg-card">Nenhum dispositivo encontrado</option>';
@@ -165,9 +168,9 @@
         function renderDeviceSelect() {
             const n = availableDevices.length;
             el.deviceSelect.innerHTML = `<option value="all" class="bg-card">Todos os Dispositivos (${n})</option>` +
-                availableDevices.map(d => `<option value="${d}" class="bg-card">${d}</option>`).join('');
+                availableDevices.map(d => `<option value="${d.name}" class="bg-card">${deviceLabel(d.name)}</option>`).join('');
             el.deviceSelect.value = 'all';
-            setSelectedDevices(availableDevices.slice());
+            setSelectedDevices(availableDevices.map(d => d.name));
         }
 
         function setSelectedDevices(devices) {
@@ -182,7 +185,7 @@
                 tag.className = 'input-bg border border-custom rounded-full px-4 py-1.5 text-xs text-gray-400 flex items-center gap-2';
                 tag.innerHTML = `
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-                    <span>${name}</span>
+                    <span>${deviceLabel(name)}</span>
                     <button class="text-gray-500 hover:text-red-400 transition-colors" title="Remover dispositivo">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>`;
@@ -195,7 +198,7 @@
             const next = selectedDevices.filter(d => d !== name);
             if (next.length === 0) {
                 el.deviceSelect.value = 'all';
-                setSelectedDevices(availableDevices.slice());
+                setSelectedDevices(availableDevices.map(d => d.name));
             } else {
                 setSelectedDevices(next);
             }
@@ -203,7 +206,7 @@
 
         el.deviceSelect.addEventListener('change', () => {
             if (el.deviceSelect.value === 'all') {
-                setSelectedDevices(availableDevices.slice());
+                setSelectedDevices(availableDevices.map(d => d.name));
             } else {
                 setSelectedDevices([el.deviceSelect.value]);
             }

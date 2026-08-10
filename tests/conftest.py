@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.config
+import app.device_aliases
 import app.sound_system.recording
 import app.sessions.store
 import main
@@ -17,6 +18,7 @@ def tmp_recordings(tmp_path, monkeypatch):
   monkeypatch.setattr(app.sound_system.recording, 'BASE_PATH', str(tmp_path))
   monkeypatch.setattr(main, 'BASE_PATH', str(tmp_path))
   monkeypatch.setattr(app.sessions.store, 'SESSIONS_DIR', tmp_path)
+  monkeypatch.setattr(app.device_aliases, 'ALIASES_FILE', tmp_path / 'device_aliases.json')
   return tmp_path
 
 
@@ -33,5 +35,6 @@ def client(tmp_recordings, monkeypatch):
   """TestClient running against the dummy sound system with clean state."""
   monkeypatch.setattr(main, 'SOUND_SYSTEM', DummyAlsaSoundSystem())
   monkeypatch.setattr(main, 'SESSIONS', [])
+  monkeypatch.setattr(main, 'DEVICE_ALIASES', {})
   with TestClient(main.app) as c:
     yield c

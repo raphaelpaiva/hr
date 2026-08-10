@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Gravador Sem Cabeça - Configurações</title>
+    <script src="/static/js/tailwind.config.js"></script>
+    <script src="/static/js/tailwind.min.js"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/app.js"></script>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header id="app-header" data-page="settings"></header>
+
+    <main class="flex-1 max-w-5xl mx-auto w-full px-4 md:px-6 py-8 md:py-10 flex flex-col gap-8">
+
+        <div class="flex items-center justify-between px-2">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-white">Configurações</h1>
+                <p class="text-sm text-gray-500 mt-1">Nomeie os dispositivos para identificar cada membro da banda.</p>
+            </div>
+        </div>
+
+        <!-- Dispositivos -->
+        <div class="card-bg border border-custom rounded-3xl overflow-hidden">
+            <div class="flex items-center justify-between gap-2 flex-wrap px-6 md:px-8 pt-6">
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+                    <h3 class="text-lg font-bold text-white">Dispositivos</h3>
+                </div>
+                <button onclick="loadDevices()" class="input-bg border border-custom hover:border-gray-500 text-gray-400 hover:text-white text-sm font-semibold py-2 px-4 rounded-full transition-colors">
+                    ↻ Atualizar
+                </button>
+            </div>
+            <p class="px-6 md:px-8 pt-3 text-xs text-gray-500 leading-relaxed">
+                Cada placa de som USB aparece como um dispositivo. Associe um nome de membro para que ele apareça no início do arquivo baixado.
+            </p>
+
+            <div class="overflow-x-auto hidden md:block mt-4">
+                <table class="w-full text-left border-collapse min-w-[720px]">
+                    <thead>
+                        <tr class="border-y border-custom text-[10px] uppercase tracking-widest text-gray-500 bg-surface/50">
+                            <th class="px-6 md:px-8 py-4 font-bold">Dispositivo</th>
+                            <th class="px-6 py-4 font-bold">Nome (opcional)</th>
+                            <th class="px-6 md:px-8 py-4 font-bold text-right">Arquivo final</th>
+                        </tr>
+                    </thead>
+                    <tbody id="aliasesBody" class="text-sm font-medium text-gray-300"></tbody>
+                </table>
+            </div>
+            <div id="aliasesCards" class="md:hidden flex flex-col gap-3 p-4 md:p-6"></div>
+
+            <div id="emptyState" class="hidden p-12 text-center">
+                <div class="w-14 h-14 mx-auto rounded-full bg-card border border-custom flex items-center justify-center text-2xl">🔌</div>
+                <p class="mt-4 text-gray-500 font-medium">Nenhum dispositivo encontrado. Conecte as pedaleiras via USB.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="py-8 text-center text-xs text-gray-500 font-medium">
+        <span id="app-git-info"></span>
+    </footer>
+
+    <script>
+        let deviceList = [];
+
+        // --- Utilidades de nome ---
+        function stripAccents(s) {
+            return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+
+        function sanitize(s) {
+            return stripAccents(s).replace(/[^A-Za-z0-9_.-]+/g, '_').replace(/^_+|_+$/g, '');
+        }
+
+        function previewName(deviceName, alias) {
+            const safe = sanitize(deviceName);
+            const a = sanitize(alias || '');
+            const prefix = a ? `${a}_${safe}` : safe;
+            return `${prefix}_7ee3ff95.wav`;
+        }
+
+        // --- Carregar dispositivos ---
+        async function loadDevices() {
+            const body = document.getElementById('aliasesBody');
+            const cards = document.getElementById('aliasesCards');
+            const emptyState = document.getElementById('emptyState');
+            body.innerHTML = '';
+            cards.innerHTML = '';
+
+            try {
+                const data = await api('/devices');
+                deviceList = (data.devices || []).filter(d => d.name.startsWith('plughw'));
+            } catch (e) {
+                deviceList = [];
+            }
+
+            if (!deviceList.length) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            deviceList.forEach(device => {
+                body.appendChild(createRow(device));
+                cards.appendChild(createCard(device));
+            });
+        }
+
+        // --- Salvar alias ---
+        async function saveAlias(deviceName, input, statusEl) {
+            const alias = input.value.trim();
+            try {
+                await api('/device-aliases', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_name: deviceName, alias: alias }),
+                });
+                const device = deviceList.find(d => d.name === deviceName);
+                if (device) device.alias = alias;
+                if (statusEl) {
+                    statusEl.textContent = 'Salvo';
+                    statusEl.classList.remove('hidden');
+                    setTimeout(() => statusEl.classList.add('hidden'), 1500);
+                }
+                renderPreviews();
+            } catch (e) {
+                alert(e.message || 'Erro ao salvar o nome.');
+            }
+        }
+
+        function buildAliasEditor(device) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex items-center gap-2 w-full max-w-xs';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Nome do membro...';
+            input.value = device.alias || '';
+            input.className = 'input-bg border border-custom rounded-xl px-3 py-2 w-full text-gray-100 font-medium focus:outline-none focus:border-red-500/50 transition-colors';
+
+            const btn = document.createElement('button');
+            btn.className = 'bg-[#e53935] hover:bg-red-500 text-white font-semibold px-3 py-2 rounded-xl text-sm transition-colors shrink-0';
+            btn.textContent = 'Salvar';
+            btn.onclick = () => saveAlias(device.name, input, status);
+
+            const status = document.createElement('span');
+            status.className = 'hidden text-xs text-green-400 font-semibold shrink-0';
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') btn.click();
+                if (e.key === 'Escape') input.value = device.alias || '';
+            });
+
+            wrapper.appendChild(input);
+            wrapper.appendChild(btn);
+            wrapper.appendChild(status);
+            return wrapper;
+        }
+
+        // --- Preview ---
+        function renderPreviews() {
+            document.querySelectorAll('[data-preview]').forEach(el => {
+                const device = deviceList.find(d => d.name === el.dataset.preview);
+                if (!device) return;
+                el.textContent = previewName(device.name, device.alias || '');
+            });
+        }
+
+        // --- Linha (desktop) ---
+        function createRow(device) {
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-custom hover:bg-[#2a2424] transition-colors';
+
+            const tdDev = document.createElement('td');
+            tdDev.className = 'px-6 md:px-8 py-5';
+            tdDev.innerHTML = `
+                <div class="font-mono text-xs text-gray-400 break-all">${device.name}</div>
+                <div class="text-xs text-gray-500 mt-1">${device.description || ''}</div>`;
+            tr.appendChild(tdDev);
+
+            const tdAlias = document.createElement('td');
+            tdAlias.className = 'px-6 py-5';
+            tdAlias.appendChild(buildAliasEditor(device));
+            tr.appendChild(tdAlias);
+
+            const tdPreview = document.createElement('td');
+            tdPreview.className = 'px-6 md:px-8 py-5 text-right';
+            const preview = document.createElement('div');
+            preview.className = 'font-mono text-xs text-cyan-400/80 break-all';
+            preview.dataset.preview = device.name;
+            tdPreview.appendChild(preview);
+            tr.appendChild(tdPreview);
+
+            return tr;
+        }
+
+        // --- Card (mobile) ---
+        function createCard(device) {
+            const card = document.createElement('div');
+            card.className = 'bg-surface border border-custom rounded-2xl p-4';
+            card.innerHTML = `
+                <div class="font-mono text-xs text-gray-400 break-all">${device.name}</div>
+                <div class="text-xs text-gray-500 mt-1">${device.description || ''}</div>`;
+
+            const aliasBlock = document.createElement('div');
+            aliasBlock.className = 'mt-4';
+            aliasBlock.appendChild(buildAliasEditor(device));
+            card.appendChild(aliasBlock);
+
+            const preview = document.createElement('div');
+            preview.className = 'font-mono text-xs text-cyan-400/80 break-all mt-4';
+            preview.dataset.preview = device.name;
+            card.appendChild(preview);
+
+            return card;
+        }
+
+        loadDevices();
+    </script>
+</body>
+</html>

@@ -1,10 +1,11 @@
 import datetime
+import dataclasses
 import io
 import re
 import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 from time import sleep
 from fastapi import FastAPI, APIRouter, BackgroundTasks, HTTPException
 from subprocess import run
@@ -19,6 +20,7 @@ from app.system import get_header_info
 from app.build_info import get_build_info
 
 from app.config import BASE_PATH
+from app.device_aliases import load_aliases, save_aliases, make_wav_name
 from app.sound_system.sound_system import AlsaSoundSystem, SoundSystem, DummyAlsaSoundSystem, SoundDevice
 from app.sessions.session import Session, Take
 from app.sessions.store import delete_session as delete_session_store
@@ -26,8 +28,9 @@ from app.sessions.store import get_sessions, save_session
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  global SESSIONS
+  global SESSIONS, DEVICE_ALIASES
   SESSIONS = get_sessions()
+  DEVICE_ALIASES = load_aliases()
   yield
 
 app = FastAPI(lifespan=lifespan)
@@ -37,6 +40,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 SOUND_SYSTEM: SoundSystem = AlsaSoundSystem()
 # SOUND_SYSTEM: SoundSystem = DummyAlsaSoundSystem()
 SESSIONS: List[Session] = []
+DEVICE_ALIASES: Dict[str, str] = {}
 
 def find_session_by_id(session_id: str) -> Optional[Session]:
   return next((s for s in SESSIONS if s.id == session_id), None)
@@ -78,6 +82,13 @@ async def sessions(id: Optional[str] = None):
     index_html = f.read()
   
   return HTMLResponse(content=index_html, status_code=200)
+
+@app.get("/settings")
+async def settings():
+  with open("static/settings.html", "r") as f:
+    settings_html = f.read()
+  
+  return HTMLResponse(content=settings_html, status_code=200)
 
 @v1_router.get("/session")
 async def list_sessions():
@@ -151,8 +162,8 @@ async def take_zip(session_id: str, take_id: str):
   with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
     for rec in take.recordings:
       if rec.output_path.exists():
-        safe_name = re.sub(r'[^A-Za-z0-9_.-]+', '_', rec.device_name)
-        zf.write(rec.output_path, f"{safe_name}_{rec.id[:8]}.wav")
+        s = make_wav_name(rec.device_name, rec.id, DEVICE_ALIASES)
+        zf.write(rec.output_path, s)
   buffer.seek(0)
   safe_take_name = re.sub(r'[^A-Za-z0-9_.-]+', '_', take.name).strip('_') or f"take_{take.index:03d}"
   filename = f"take_{take.index:03d}_{safe_take_name}.zip"
@@ -203,7 +214,30 @@ async def delete_session(payload: dict):
 @v1_router.get("/devices")
 async def devices():
   devices: List[SoundDevice] = SOUND_SYSTEM.list_devices()
-  return {"devices": devices}
+  result = []
+  for device in devices:
+    item = dataclasses.asdict(device)
+    item['alias'] = DEVICE_ALIASES.get(device.name, '')
+    result.append(item)
+  return {"devices": result}
+
+@v1_router.get("/device-aliases")
+async def get_device_aliases():
+  return {"aliases": DEVICE_ALIASES}
+
+@v1_router.post("/device-aliases")
+async def set_device_alias(payload: dict):
+  global DEVICE_ALIASES
+  device_name = (payload.get('device_name') or '').strip()
+  if not device_name:
+    raise HTTPException(status_code=400, detail="Device name is required")
+  alias = (payload.get('alias') or '').strip()
+  if alias:
+    DEVICE_ALIASES[device_name] = alias
+  else:
+    DEVICE_ALIASES.pop(device_name, None)
+  save_aliases(DEVICE_ALIASES)
+  return {"aliases": DEVICE_ALIASES}
 
 @v1_router.get("/history")
 async def history():
