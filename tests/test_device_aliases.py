@@ -37,6 +37,15 @@ def test_make_wav_name_with_alias():
   assert make_wav_name(DEVICE, '7ee3ff950000', aliases) == 'Macoli_plughw_CARD_MomixCab_DEV_0_7ee3ff95.wav'
 
 
+def test_make_wav_name_with_channel():
+  assert make_wav_name(DEVICE, '7ee3ff950000', channel=2) == 'plughw_CARD_MomixCab_DEV_0_7ee3ff95_ch3.wav'
+
+
+def test_make_wav_name_with_alias_and_channel():
+  aliases = {DEVICE: 'Macóli'}
+  assert make_wav_name(DEVICE, '7ee3ff950000', aliases, channel=0) == 'Macoli_plughw_CARD_MomixCab_DEV_0_7ee3ff95_ch1.wav'
+
+
 # --- API ---
 
 def test_get_aliases_empty_by_default(client):

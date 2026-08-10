@@ -126,10 +126,14 @@ async def get_session(session_id: str):
 
 def start_recording_take(session: Session, devices: List[str]) -> Take:
   take = session.start_take(f"Take {len(session.takes) + 1}")
+  all_recordings = []
   for device_name in devices:
-    rec = Recording(device_name, session_id=session.id, take_id=take.id)
-    SOUND_SYSTEM.start_recording(rec)
-    take.add_recording(rec)
+    channels = SOUND_SYSTEM.device_channels(device_name)
+    for channel in range(channels):
+      rec = Recording(device_name, session_id=session.id, take_id=take.id, channel=channel)
+      take.add_recording(rec)
+      all_recordings.append(rec)
+  SOUND_SYSTEM.start_recording(all_recordings)
   session.devices = devices
   save_session(session)
   return take
@@ -187,7 +191,7 @@ async def take_zip(session_id: str, take_id: str):
   with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
     for rec in take.recordings:
       if rec.output_path.exists():
-        s = make_wav_name(rec.device_name, rec.id, DEVICE_ALIASES)
+        s = make_wav_name(rec.device_name, rec.id, DEVICE_ALIASES, channel=rec.channel)
         zf.write(rec.output_path, s)
   buffer.seek(0)
   safe_take_name = re.sub(r'[^A-Za-z0-9_.-]+', '_', take.name).strip('_') or f"take_{take.index:03d}"
@@ -243,6 +247,7 @@ async def devices():
   for device in devices:
     item = dataclasses.asdict(device)
     item['alias'] = DEVICE_ALIASES.get(device.name, '')
+    item['channels'] = SOUND_SYSTEM.device_channels(device.name)
     result.append(item)
   return {"devices": result}
 

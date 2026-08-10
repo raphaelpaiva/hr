@@ -11,6 +11,13 @@ def test_list_devices(client):
   assert 'plughw:CARD=CODEC,DEV=0' in names
 
 
+def test_devices_expose_channels(client):
+  devices = client.get('/api/v1/devices').json()['devices']
+  by_name = {d['name']: d for d in devices}
+  assert by_name['plughw:CARD=CODEC,DEV=0']['channels'] == 2
+  assert by_name['null']['channels'] == 1
+
+
 def test_health(client):
   res = client.get('/api/v1/health')
   assert res.status_code == 200
@@ -28,9 +35,10 @@ def test_quick_start_creates_anonymous_session_and_records(client):
   take = data['take']
   assert take['index'] == 1
   assert take['name'] == 'Take 1'
-  assert len(take['recordings']) == 1
-  assert take['recordings'][0]['device_name'] == DEVICE
-  assert take['recordings'][0]['state'] == 'recording'
+  assert len(take['recordings']) == 2  # 1 channel per physical input
+  assert [r['channel'] for r in take['recordings']] == [0, 1]
+  assert all(r['device_name'] == DEVICE for r in take['recordings'])
+  assert all(r['state'] == 'recording' for r in take['recordings'])
 
   sessions = client.get('/api/v1/session').json()
   assert [s['id'] for s in sessions] == [data['session_id']]
@@ -88,9 +96,10 @@ def test_session_start_creates_named_session_and_records(client):
   take = data['take']
   assert take['index'] == 1
   assert take['name'] == 'Take 1'
-  assert len(take['recordings']) == 1
-  assert take['recordings'][0]['device_name'] == DEVICE
-  assert take['recordings'][0]['state'] == 'recording'
+  assert len(take['recordings']) == 2
+  assert [r['channel'] for r in take['recordings']] == [0, 1]
+  assert all(r['device_name'] == DEVICE for r in take['recordings'])
+  assert all(r['state'] == 'recording' for r in take['recordings'])
 
   sessions = client.get('/api/v1/session').json()
   assert [s['id'] for s in sessions] == [data['session_id']]

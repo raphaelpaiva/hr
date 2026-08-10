@@ -105,3 +105,28 @@ def test_from_dict_defaults_error_code(tmp_recordings):
   })
   assert restored.id == 'abc'
   assert restored.error_code is None
+
+
+def test_channel_defaults_to_none(tmp_recordings):
+  rec = Recording('null', session_id=SID, take_id=TID)
+  assert rec.channel is None
+  assert rec.__dict__()['channel'] is None
+
+
+def test_channel_roundtrip(tmp_recordings):
+  rec = Recording('null', session_id=SID, take_id=TID, channel=3)
+  rec.mark_started()
+  restored = Recording(from_dict=rec.__dict__())
+  assert restored.channel == 3
+
+
+def test_from_dict_legacy_without_channel(tmp_recordings):
+  restored = Recording(from_dict={
+    'id': 'abc',
+    'device_name': 'null',
+    'state': 'stopped',
+    'created_at': 1000.0,
+    'session_id': SID,
+    'take_id': TID,
+  })
+  assert restored.channel is None

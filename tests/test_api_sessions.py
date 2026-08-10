@@ -85,7 +85,7 @@ def test_start_take_with_devices(client):
   take = res.json()
   assert take['index'] == 1
   assert take['name'] == 'Take 1'
-  assert len(take['recordings']) == 2
+  assert len(take['recordings']) == 3  # CODEC = 2ch + null = 1ch
   assert all(r['state'] == 'recording' for r in take['recordings'])
 
 
@@ -94,7 +94,7 @@ def test_start_take_persists_devices_and_defaults_to_them(client):
   client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]})
   res = client.post(f'/api/v1/session/{sid}/take/start', json={})
   assert res.status_code == 200
-  assert [r['device_name'] for r in res.json()['recordings']] == [DEVICE]
+  assert [r['device_name'] for r in res.json()['recordings']] == [DEVICE, DEVICE]
 
 
 def test_start_take_400_without_devices(client):
@@ -135,10 +135,10 @@ def test_stop_stops_latest_active_take(client):
   res = client.post(f'/api/v1/session/{sid}/take/stop')
   assert res.status_code == 200
   assert res.json()['index'] == 2
-  # first take is still recording
+  # first take is still recording (2 channels each)
   detail = client.get(f'/api/v1/session/{sid}').json()
   states = [r['state'] for t in detail['takes'] for r in t['recordings']]
-  assert states == ['recording', 'stopped']
+  assert states == ['recording', 'recording', 'stopped', 'stopped']
 
 
 # --- ZIP ---
@@ -154,24 +154,26 @@ def test_zip_empty_when_no_files(client):
     assert zf.namelist() == []
 
 
-def test_zip_includes_wavs_with_sanitized_names(client, tmp_recordings):
+def test_zip_includes_wavs_with_sanitized_names_and_channel_suffix(client, tmp_recordings):
   sid = create_session(client)
   take = client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]}).json()
-  rec_id = take['recordings'][0]['id']
   take_id = take['id']
-  wav = tmp_recordings / sid / 'takes' / take_id / f'{rec_id}.wav'
-  wav.parent.mkdir(parents=True, exist_ok=True)
-  wav.write_bytes(b'RIFF-fake-wav')
+  for rec in take['recordings']:
+    wav = tmp_recordings / sid / 'takes' / take_id / f"{rec['id']}.wav"
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    wav.write_bytes(f'RIFF-{rec["channel"]}'.encode())
   client.post(f'/api/v1/session/{sid}/take/stop')
 
   res = client.get(f'/api/v1/session/{sid}/take/{take["id"]}/zip')
   assert res.status_code == 200
   with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
     names = zf.namelist()
-    assert len(names) == 1
-    assert names[0].startswith('plughw_CARD_CODEC_DEV_0_')
-    assert names[0].endswith('.wav')
-    assert zf.read(names[0]) == b'RIFF-fake-wav'
+    assert len(names) == 2
+    assert all(n.startswith('plughw_CARD_CODEC_DEV_0_') for n in names)
+    ch1 = next(n for n in names if n.endswith('_ch1.wav'))
+    ch2 = next(n for n in names if n.endswith('_ch2.wav'))
+    assert zf.read(ch1) == b'RIFF-0'
+    assert zf.read(ch2) == b'RIFF-1'
 
 
 def test_zip_404_unknown_take(client):

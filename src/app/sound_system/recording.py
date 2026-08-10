@@ -17,7 +17,7 @@ class RecordState(Enum):
   ERROR     = "error"
 
 class Recording():
-  def __init__(self, device_name: Union[str, None] = None, session_id: Union[str, None] = None, take_id: Union[str, None] = None, from_dict: Union[dict, None] = None):
+  def __init__(self, device_name: Union[str, None] = None, session_id: Union[str, None] = None, take_id: Union[str, None] = None, channel: Optional[int] = None, from_dict: Union[dict, None] = None):
     if device_name is None and from_dict is None:
       raise ValueError("Either device_name or from_dict must be provided.")
     elif device_name is not None and from_dict is None:
@@ -29,6 +29,7 @@ class Recording():
       self.device_name: str = device_name
       self.session_id: Optional[str] = session_id
       self.take_id: Optional[str] = take_id
+      self.channel: Optional[int] = channel
       
       if self.session_id is None or self.take_id is None:
         raise ValueError("session_id and take_id are required.")
@@ -42,6 +43,7 @@ class Recording():
       self.device_name = from_dict['device_name']
       self.session_id = from_dict.get('session_id')
       self.take_id = from_dict.get('take_id')
+      self.channel = from_dict.get('channel')
       
       if self.session_id is None or self.take_id is None:
         raise ValueError("session_id and take_id are required.")
@@ -111,6 +113,7 @@ class Recording():
       "device_name": self.device_name,
       "session_id": self.session_id,
       "take_id": self.take_id,
+      "channel": self.channel,
       "created_at": self.created_at.timestamp(),
       "last_modification": self.last_modification.timestamp(),
       "state": self.state.value,
