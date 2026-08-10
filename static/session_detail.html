@@ -311,6 +311,41 @@
             });
         }
 
+        function audioPlayersHtml(take) {
+            const recordings = take.recordings || [];
+            if (!recordings.length) {
+                return '<p class="text-xs text-gray-500">Nenhuma gravação nesta tomada.</p>';
+            }
+            const playable = recordings.filter(r => r.state === 'stopped');
+            const players = playable.map(r => `
+                    <div class="flex flex-col gap-1.5">
+                        <span class="text-[10px] uppercase tracking-widest font-bold text-gray-500 truncate">${deviceLabel(r.device_name)}</span>
+                        <audio controls preload="none" class="w-full" src="/api/v1/result/${r.id}"></audio>
+                    </div>`).join('');
+            const stateLabels = { recording: 'gravando…', error: 'erro', new: 'sem áudio' };
+            const hints = recordings
+                .filter(r => r.state !== 'stopped')
+                .map(r => `
+                    <div class="flex items-center gap-2 text-[11px] text-gray-500">
+                        <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                        <span class="truncate">${deviceLabel(r.device_name)} — ${stateLabels[r.state] || 'indisponível'}</span>
+                    </div>`).join('');
+            return `${players ? `<div class="flex flex-col gap-3">${players}</div>` : ''}${hints ? `<div class="flex flex-col gap-2 mt-3">${hints}</div>` : ''}`;
+        }
+
+        function attachListenButton(btn, container, take, row) {
+            if (!btn || !container) return;
+            let built = false;
+            btn.addEventListener('click', () => {
+                if (!built) {
+                    container.innerHTML = audioPlayersHtml(take);
+                    built = true;
+                }
+                container.classList.toggle('hidden');
+                if (row) row.classList.toggle('hidden', container.classList.contains('hidden'));
+            });
+        }
+
         function createTakeCard(take, index) {
             const channels = (take.recordings || []).length;
             const zipUrl = `/api/v1/session/${sessionId}/take/${take.id}/zip`;
@@ -329,13 +364,19 @@
                     </div>
                 </div>
                 <div class="mt-3 text-gray-400 font-mono text-xs">${formatTakeTimestamp(take.created_at)}</div>
-                <div class="mt-3">
+                <div class="mt-3 flex items-center gap-2 flex-wrap">
+                    <button class="js-listen input-bg border border-custom hover:border-gray-500 text-gray-300 px-4 py-2 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v14l11-7z"></path></svg>
+                        Ouvir
+                    </button>
                     <a href="${zipUrl}" class="input-bg border border-custom hover:border-gray-500 text-gray-300 px-4 py-2 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-2">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         Baixar (ZIP)
                     </a>
-                </div>`;
+                </div>
+                <div class="js-audio-area hidden mt-4 border-t border-custom pt-4"></div>`;
             attachTakeRename(card.querySelector('.js-take-name'), take);
+            attachListenButton(card.querySelector('.js-listen'), card.querySelector('.js-audio-area'), take);
             return card;
         }
 
@@ -377,13 +418,27 @@
                     </td>
                     <td class="px-6 py-6 text-gray-400 font-mono text-xs">${formatTakeTimestamp(take.created_at)}</td>
                     <td class="px-6 md:px-8 py-6 text-right">
-                        <a href="${zipUrl}" class="input-bg border border-custom hover:border-gray-500 text-gray-300 px-4 py-2 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-2">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                            Baixar (ZIP)
-                        </a>
+                        <div class="flex items-center justify-end gap-2">
+                            <button class="js-listen input-bg border border-custom hover:border-gray-500 text-gray-300 px-4 py-2 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-2">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v14l11-7z"></path></svg>
+                                Ouvir
+                            </button>
+                            <a href="${zipUrl}" class="input-bg border border-custom hover:border-gray-500 text-gray-300 px-4 py-2 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-2">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                Baixar (ZIP)
+                            </a>
+                        </div>
                     </td>`;
                 el.takesBody.appendChild(tr);
+                const expRow = document.createElement('tr');
+                expRow.className = 'hidden';
+                expRow.innerHTML = `
+                    <td colspan="5" class="px-6 md:px-8 pb-6">
+                        <div class="js-audio-area hidden border-t border-custom pt-4 mt-4"></div>
+                    </td>`;
+                el.takesBody.appendChild(expRow);
                 attachTakeRename(tr.querySelector('.js-take-name'), take);
+                attachListenButton(tr.querySelector('.js-listen'), expRow.querySelector('.js-audio-area'), take, expRow);
                 el.takesCards.appendChild(createTakeCard(take, take.index));
             });
         }

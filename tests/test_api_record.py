@@ -164,6 +164,28 @@ def test_result_serves_wav(client, tmp_recordings):
   assert res.content == b'RIFF-fake-wav'
 
 
+def test_result_serves_each_stopped_take_recording(client, tmp_recordings):
+  devices = [DEVICE, 'plughw:CARD=CODEC,DEV=1']
+  data = client.post('/api/v1/session/start', json={'name': 'Ouvir', 'devices': devices}).json()
+  sid = data['session_id']
+  take_id = data['take']['id']
+  client.post(f'/api/v1/session/{sid}/take/stop')
+
+  take = client.get(f'/api/v1/session/{sid}').json()['takes'][0]
+  assert all(r['state'] == 'stopped' for r in take['recordings'])
+  assert all(r['id'] and r['device_name'] for r in take['recordings'])
+
+  for rec in take['recordings']:
+    wav = tmp_recordings / sid / 'takes' / take_id / f"{rec['id']}.wav"
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    wav.write_bytes(f'RIFF-{rec["id"]}'.encode())
+
+  for rec in take['recordings']:
+    res = client.get(f"/api/v1/result/{rec['id']}")
+    assert res.status_code == 200
+    assert res.content == f'RIFF-{rec["id"]}'.encode()
+
+
 # --- Shutdown ---
 
 def test_shutdown_responds_without_running_sudo(client, shutdown_patch):
