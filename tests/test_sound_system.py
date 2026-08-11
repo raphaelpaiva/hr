@@ -94,7 +94,7 @@ TID = 't' * 32
 
 def test_dummy_start_recording_stores_and_marks(tmp_recordings):
   ss = DummyAlsaSoundSystem()
-  rec = Recording('plughw:CARD=CODEC,DEV=0', session_id=SID, take_id=TID, channel=0)
+  rec = Recording('plughw:CARD=CODEC,DEV=0', session_id=SID, take_id=TID, channel=0, base_dir=tmp_recordings)
   ss.start_recording([rec])
   assert rec.state == RecordState.RECORDING
   assert ss.get_recordings() == [rec]
@@ -102,7 +102,7 @@ def test_dummy_start_recording_stores_and_marks(tmp_recordings):
 
 def test_dummy_stop_recording_marks_stopped(tmp_recordings):
   ss = DummyAlsaSoundSystem()
-  rec = Recording('null', session_id=SID, take_id=TID)
+  rec = Recording('null', session_id=SID, take_id=TID, base_dir=tmp_recordings)
   ss.start_recording([rec])
   ss.stop_recording(rec)
   assert rec.state == RecordState.STOPPED
@@ -112,7 +112,7 @@ def test_dummy_stop_recording_marks_stopped(tmp_recordings):
 
 def test_dummy_batch_start_and_stop_marks_whole_group(tmp_recordings):
   ss = DummyAlsaSoundSystem()
-  recs = [Recording('plughw:CARD=CODEC,DEV=0', session_id=SID, take_id=TID, channel=i) for i in range(2)]
+  recs = [Recording('plughw:CARD=CODEC,DEV=0', session_id=SID, take_id=TID, channel=i, base_dir=tmp_recordings) for i in range(2)]
   ss.start_recording(recs)
   assert all(r.state == RecordState.RECORDING for r in recs)
 
@@ -122,7 +122,7 @@ def test_dummy_batch_start_and_stop_marks_whole_group(tmp_recordings):
 
 def test_dummy_stop_recording_idempotent_by_group(tmp_recordings):
   ss = DummyAlsaSoundSystem()
-  recs = [Recording('plughw:CARD=CODEC,DEV=0', session_id=SID, take_id=TID, channel=i) for i in range(2)]
+  recs = [Recording('plughw:CARD=CODEC,DEV=0', session_id=SID, take_id=TID, channel=i, base_dir=tmp_recordings) for i in range(2)]
   ss.start_recording(recs)
   ss.stop_recording(recs[0])
   ss.stop_recording(recs[1])  # second stop is a no-op
@@ -133,7 +133,7 @@ def test_dummy_stop_recording_idempotent_by_group(tmp_recordings):
 
 def test_record_cmd_mono_uses_ac1(tmp_recordings):
   ss = AlsaSoundSystem()
-  rec = Recording('plughw:CARD=Momix,DEV=0', session_id=SID, take_id=TID, channel=0)
+  rec = Recording('plughw:CARD=Momix,DEV=0', session_id=SID, take_id=TID, channel=0, base_dir=tmp_recordings)
   cmd = ss._record_cmd('plughw:CARD=Momix,DEV=0', 1, [(rec.id, str(rec.output_path))])
   assert cmd[:6] == ['ffmpeg', '-y', '-f', 'alsa', '-channels', '1']
   assert '-map_channel' not in cmd
@@ -143,7 +143,7 @@ def test_record_cmd_mono_uses_ac1(tmp_recordings):
 
 def test_record_cmd_multichannel_uses_map_channel(tmp_recordings):
   ss = AlsaSoundSystem()
-  recs = [Recording('plughw:CARD=MTK,DEV=0', session_id=SID, take_id=TID, channel=i) for i in range(2)]
+  recs = [Recording('plughw:CARD=MTK,DEV=0', session_id=SID, take_id=TID, channel=i, base_dir=tmp_recordings) for i in range(2)]
   cmd = ss._record_cmd('plughw:CARD=MTK,DEV=0', 2, [(r.id, str(r.output_path)) for r in recs])
   assert cmd[:6] == ['ffmpeg', '-y', '-f', 'alsa', '-channels', '2']
   assert cmd.count('-map_channel') == 2

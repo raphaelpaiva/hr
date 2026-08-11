@@ -15,14 +15,14 @@ def test_take_init():
 
 def test_take_add_recording(tmp_recordings):
   take = Take('Take 1', 1)
-  rec = Recording('null', session_id=SID, take_id=take.id)
+  rec = Recording('null', session_id=SID, take_id=take.id, base_dir=tmp_recordings)
   take.add_recording(rec)
   assert take.recordings == [rec]
 
 
 def test_take_dict(tmp_recordings):
   take = Take('Take 1', 1)
-  rec = Recording('null', session_id=SID, take_id=take.id)
+  rec = Recording('null', session_id=SID, take_id=take.id, base_dir=tmp_recordings)
   rec.mark_started()
   take.add_recording(rec)
 
@@ -62,7 +62,7 @@ def test_session_dict_serializes_takes_as_dicts(tmp_recordings):
   """Regression: Session.to_dict must call take.to_dict() (parenthesized)."""
   session = Session('Ensaio')
   take = session.start_take()
-  rec = Recording('null', session_id=session.id, take_id=take.id)
+  rec = Recording('null', session_id=session.id, take_id=take.id, base_dir=tmp_recordings)
   take.add_recording(rec)
 
   data = session.to_dict()

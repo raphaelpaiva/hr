@@ -28,7 +28,7 @@ class SessionRepository:
       if data is None:
         continue
       try:
-        sessions.append(Session.from_dict(data))
+        sessions.append(Session.from_dict(data, base_dir=self.root))
       except (KeyError, ValueError, TypeError) as e:
         logger.error("Error while loading session from %s: %s", json_file, e)
 

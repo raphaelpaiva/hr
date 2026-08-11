@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 import uuid
 
@@ -16,11 +17,11 @@ class Take():
     self.recordings.append(recording)
 
   @classmethod
-  def from_dict(cls, data: dict):
+  def from_dict(cls, data: dict, base_dir: Optional[Path] = None):
     take = cls(data['name'], data['index'])
     take.id = data['id']
     take.created_at = datetime.fromtimestamp(data['created_at'])
-    take.recordings = [Recording(from_dict=rec) for rec in data.get('recordings', [])]
+    take.recordings = [Recording(from_dict=rec, base_dir=base_dir) for rec in data.get('recordings', [])]
     return take
 
   def to_dict(self):
@@ -48,12 +49,12 @@ class Session():
     return take
 
   @classmethod
-  def from_dict(cls, data: dict):
+  def from_dict(cls, data: dict, base_dir: Optional[Path] = None):
     session = cls(data['name'])
     session.id = data['id']
     session.created_at = datetime.fromtimestamp(data['created_at'])
     session.devices = data.get('devices', [])
-    session.takes = [Take.from_dict(t) for t in data.get('takes', [])]
+    session.takes = [Take.from_dict(t, base_dir=base_dir) for t in data.get('takes', [])]
     return session
 
   def to_dict(self):

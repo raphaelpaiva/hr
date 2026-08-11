@@ -127,7 +127,7 @@ class SessionService:
     for device_name in devices:
       channels = self._sound.device_channels(device_name)
       for channel in range(channels):
-        rec = Recording(device_name, session_id=session.id, take_id=take.id, channel=channel)
+        rec = Recording(device_name, session_id=session.id, take_id=take.id, channel=channel, base_dir=self._repo.root)
         take.add_recording(rec)
         all_recordings.append(rec)
     self._sound.start_recording(all_recordings)

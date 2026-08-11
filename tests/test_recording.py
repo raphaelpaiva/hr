@@ -19,7 +19,7 @@ def test_init_requires_session_and_take(tmp_recordings):
 
 
 def test_init_creates_directory(tmp_recordings):
-  rec = Recording('plughw:CARD=CODEC,DEV=0', session_id=SID, take_id=TID)
+  rec = Recording('plughw:CARD=CODEC,DEV=0', session_id=SID, take_id=TID, base_dir=tmp_recordings)
   assert rec.state == RecordState.NEW
   assert rec.device_name == 'plughw:CARD=CODEC,DEV=0'
   assert rec.error_code is None
@@ -30,34 +30,34 @@ def test_init_creates_directory(tmp_recordings):
 def test_init_raises_when_output_already_exists(tmp_recordings, monkeypatch):
   fixed_id = 'deadbeef' * 4
   monkeypatch.setattr('app.sound_system.recording.uuid.uuid4', lambda: type('U', (), {'hex': fixed_id})())
-  rec = Recording('null', session_id=SID, take_id=TID)
+  rec = Recording('null', session_id=SID, take_id=TID, base_dir=tmp_recordings)
   rec.output_path.write_text('')
   with pytest.raises(ValueError):
-    Recording('null', session_id=SID, take_id=TID)
+    Recording('null', session_id=SID, take_id=TID, base_dir=tmp_recordings)
 
 
 def test_mark_started(tmp_recordings):
-  rec = Recording('null', session_id=SID, take_id=TID)
+  rec = Recording('null', session_id=SID, take_id=TID, base_dir=tmp_recordings)
   rec.mark_started()
   assert rec.state == RecordState.RECORDING
 
 
 def test_mark_stopped(tmp_recordings):
-  rec = Recording('null', session_id=SID, take_id=TID)
+  rec = Recording('null', session_id=SID, take_id=TID, base_dir=tmp_recordings)
   rec.mark_started()
   rec.mark_stopped()
   assert rec.state == RecordState.STOPPED
 
 
 def test_mark_error_sets_error_code(tmp_recordings):
-  rec = Recording('null', session_id=SID, take_id=TID)
+  rec = Recording('null', session_id=SID, take_id=TID, base_dir=tmp_recordings)
   rec.mark_error(1)
   assert rec.state == RecordState.ERROR
   assert rec.error_code == 1
 
 
 def test_to_dict_serialization(tmp_recordings):
-  rec = Recording('null', session_id=SID, take_id=TID)
+  rec = Recording('null', session_id=SID, take_id=TID, base_dir=tmp_recordings)
   rec.mark_started()
   data = rec.to_dict()
   assert data['device_name'] == 'null'
@@ -67,11 +67,11 @@ def test_to_dict_serialization(tmp_recordings):
 
 
 def test_from_dict_round_trip(tmp_recordings):
-  rec = Recording('null', session_id=SID, take_id=TID)
+  rec = Recording('null', session_id=SID, take_id=TID, base_dir=tmp_recordings)
   rec.mark_started()
   data = rec.to_dict()
 
-  restored = Recording(from_dict=data)
+  restored = Recording(from_dict=data, base_dir=tmp_recordings)
   assert restored.id == rec.id
   assert restored.device_name == 'null'
   assert restored.state == RecordState.RECORDING
@@ -116,13 +116,13 @@ def test_from_dict_legacy_without_last_modification(tmp_recordings):
 
 
 def test_channel_defaults_to_none(tmp_recordings):
-  rec = Recording('null', session_id=SID, take_id=TID)
+  rec = Recording('null', session_id=SID, take_id=TID, base_dir=tmp_recordings)
   assert rec.channel is None
   assert rec.to_dict()['channel'] is None
 
 
 def test_channel_roundtrip(tmp_recordings):
-  rec = Recording('null', session_id=SID, take_id=TID, channel=3)
+  rec = Recording('null', session_id=SID, take_id=TID, channel=3, base_dir=tmp_recordings)
   rec.mark_started()
   restored = Recording(from_dict=rec.to_dict())
   assert restored.channel == 3

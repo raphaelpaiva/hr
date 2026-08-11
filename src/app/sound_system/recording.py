@@ -14,7 +14,7 @@ class RecordState(Enum):
   ERROR     = "error"
 
 class Recording():
-  def __init__(self, device_name: Union[str, None] = None, session_id: Union[str, None] = None, take_id: Union[str, None] = None, channel: Optional[int] = None, from_dict: Union[dict, None] = None):
+  def __init__(self, device_name: Union[str, None] = None, session_id: Union[str, None] = None, take_id: Union[str, None] = None, channel: Optional[int] = None, from_dict: Union[dict, None] = None, base_dir: Optional[Path] = None):
     if device_name is None and from_dict is None:
       raise ValueError("Either device_name or from_dict must be provided.")
     elif device_name is not None and from_dict is None:
@@ -31,7 +31,7 @@ class Recording():
       if self.session_id is None or self.take_id is None:
         raise ValueError("session_id and take_id are required.")
 
-      self._set_paths()
+      self._set_paths(base_dir)
       self.error_code: Union[int, None] = None
 
       self._prepare_filesystem()
@@ -45,7 +45,7 @@ class Recording():
       if self.session_id is None or self.take_id is None:
         raise ValueError("session_id and take_id are required.")
 
-      self._set_paths()
+      self._set_paths(base_dir)
       self.created_at = datetime.fromtimestamp(from_dict.get('created_at', 0.0))
       last_modification = from_dict.get('last_modification', from_dict.get('created_at', 0.0))
       self.last_modification = datetime.fromtimestamp(last_modification)
@@ -56,8 +56,9 @@ class Recording():
 
       self.state = RecordState(from_dict['state'])
 
-  def _set_paths(self) -> None:
-    self.base_dir = Path(f"{BASE_PATH}/{self.session_id}/takes/{self.take_id}")
+  def _set_paths(self, base_dir: Optional[Path] = None) -> None:
+    root = Path(base_dir) if base_dir is not None else Path(BASE_PATH)
+    self.base_dir = root / self.session_id / 'takes' / self.take_id
     self.output_path = self.base_dir / Path(f"{self.id}.wav")
 
   def _prepare_filesystem(self) -> None:
