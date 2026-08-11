@@ -3,25 +3,20 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import app.config
-import app.device_aliases
-import app.sound_system.recording
-import app.sessions.store
-import app.lyrics.store
 import main
+from app.repositories.alias_repo import AliasRepository
+from app.repositories.lyric_repo import LyricRepository
+from app.repositories.session_repo import SessionRepository
+from app.services.alias_service import AliasService
+from app.services.lyric_service import LyricService
+from app.services.session_service import SessionService
 from app.sound_system.sound_system import DummyAlsaSoundSystem
 
 
 @pytest.fixture
-def tmp_recordings(tmp_path, monkeypatch):
-  """Point every storage consumer (single-root sessions/) at a throwaway temp directory."""
-  monkeypatch.setattr(app.config, 'BASE_PATH', str(tmp_path))
-  monkeypatch.setattr(app.sound_system.recording, 'BASE_PATH', str(tmp_path))
-  monkeypatch.setattr(main, 'BASE_PATH', str(tmp_path))
-  monkeypatch.setattr(app.sessions.store, 'SESSIONS_DIR', tmp_path)
-  monkeypatch.setattr(app.lyrics.store, 'LYRICS_DIR', tmp_path / 'lyrics')
-  monkeypatch.setattr(app.device_aliases, 'ALIASES_FILE', tmp_path / 'device_aliases.json')
-  return tmp_path
+def tmp_recordings(tmp_path):
+  """Throwaway sessions root used by the patched build_services."""
+  return tmp_path / 'sessions'
 
 
 @pytest.fixture
@@ -32,12 +27,20 @@ def shutdown_patch(monkeypatch):
   return calls
 
 
+def build_test_services(storage_root: Path) -> dict:
+  sound = DummyAlsaSoundSystem()
+  return {
+    'session_service': SessionService(SessionRepository(storage_root / 'sessions'), sound),
+    'lyric_service': LyricService(LyricRepository(storage_root / 'lyrics')),
+    'alias_service': AliasService(AliasRepository(storage_root / 'device_aliases.json')),
+  }
+
+
 @pytest.fixture
 def client(tmp_recordings, monkeypatch):
   """TestClient running against the dummy sound system with clean state."""
+  storage_root = tmp_recordings.parent
   monkeypatch.setattr(main, 'SOUND_SYSTEM', DummyAlsaSoundSystem())
-  monkeypatch.setattr(main, 'SESSIONS', [])
-  monkeypatch.setattr(main, 'DEVICE_ALIASES', {})
-  monkeypatch.setattr(main, 'LYRICS', [])
+  monkeypatch.setattr(main, 'build_services', lambda sound: build_test_services(storage_root))
   with TestClient(main.app) as c:
     yield c

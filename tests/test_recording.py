@@ -36,12 +36,10 @@ def test_init_raises_when_output_already_exists(tmp_recordings, monkeypatch):
     Recording('null', session_id=SID, take_id=TID)
 
 
-def test_mark_started_writes_json(tmp_recordings):
+def test_mark_started(tmp_recordings):
   rec = Recording('null', session_id=SID, take_id=TID)
   rec.mark_started()
   assert rec.state == RecordState.RECORDING
-  assert rec.json_path.exists()
-  assert rec.json_path.read_text().startswith('{"id"')
 
 
 def test_mark_stopped(tmp_recordings):
@@ -49,7 +47,6 @@ def test_mark_stopped(tmp_recordings):
   rec.mark_started()
   rec.mark_stopped()
   assert rec.state == RecordState.STOPPED
-  assert rec.json_path.exists()
 
 
 def test_mark_error_sets_error_code(tmp_recordings):
@@ -57,13 +54,12 @@ def test_mark_error_sets_error_code(tmp_recordings):
   rec.mark_error(1)
   assert rec.state == RecordState.ERROR
   assert rec.error_code == 1
-  assert rec.json_path.exists()
 
 
-def test_dict_serialization(tmp_recordings):
+def test_to_dict_serialization(tmp_recordings):
   rec = Recording('null', session_id=SID, take_id=TID)
   rec.mark_started()
-  data = rec.__dict__()
+  data = rec.to_dict()
   assert data['device_name'] == 'null'
   assert data['state'] == 'recording'
   assert data['error_code'] is None
@@ -73,7 +69,7 @@ def test_dict_serialization(tmp_recordings):
 def test_from_dict_round_trip(tmp_recordings):
   rec = Recording('null', session_id=SID, take_id=TID)
   rec.mark_started()
-  data = rec.__dict__()
+  data = rec.to_dict()
 
   restored = Recording(from_dict=data)
   assert restored.id == rec.id
@@ -107,16 +103,28 @@ def test_from_dict_defaults_error_code(tmp_recordings):
   assert restored.error_code is None
 
 
+def test_from_dict_legacy_without_last_modification(tmp_recordings):
+  restored = Recording(from_dict={
+    'id': 'abc',
+    'device_name': 'null',
+    'state': 'stopped',
+    'created_at': 1000.0,
+    'session_id': SID,
+    'take_id': TID,
+  })
+  assert restored.last_modification.timestamp() == 1000.0
+
+
 def test_channel_defaults_to_none(tmp_recordings):
   rec = Recording('null', session_id=SID, take_id=TID)
   assert rec.channel is None
-  assert rec.__dict__()['channel'] is None
+  assert rec.to_dict()['channel'] is None
 
 
 def test_channel_roundtrip(tmp_recordings):
   rec = Recording('null', session_id=SID, take_id=TID, channel=3)
   rec.mark_started()
-  restored = Recording(from_dict=rec.__dict__())
+  restored = Recording(from_dict=rec.to_dict())
   assert restored.channel == 3
 
 

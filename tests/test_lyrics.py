@@ -1,18 +1,23 @@
 import json
 
 from app.lyrics.lyric import Lyric
-from app.lyrics.store import delete_lyric, get_lyrics, save_lyric
+from app.repositories.lyric_repo import LyricRepository
+
+
+def repo(tmp_recordings) -> LyricRepository:
+  return LyricRepository(tmp_recordings.parent / 'lyrics')
 
 
 def test_get_lyrics_empty_when_dir_missing(tmp_recordings):
-  assert get_lyrics() == []
+  assert LyricRepository(tmp_recordings.parent / 'missing').get_all() == []
 
 
 def test_save_and_load_roundtrip(tmp_recordings):
+  r = repo(tmp_recordings)
   lyric = Lyric('Amanhã', 'Meu bem, amanhã\n\nacordo cedo')
-  save_lyric(lyric)
+  r.save(lyric)
 
-  loaded = get_lyrics()
+  loaded = r.get_all()
   assert len(loaded) == 1
   assert loaded[0].id == lyric.id
   assert loaded[0].name == 'Amanhã'
@@ -20,53 +25,56 @@ def test_save_and_load_roundtrip(tmp_recordings):
 
 
 def test_update_persisted(tmp_recordings):
+  r = repo(tmp_recordings)
   lyric = Lyric('Antigo')
-  save_lyric(lyric)
+  r.save(lyric)
   lyric.name = 'Novo Nome'
   lyric.text = 'versão nova'
-  save_lyric(lyric)
+  r.save(lyric)
 
-  loaded = get_lyrics()
+  loaded = r.get_all()
   assert loaded[0].name == 'Novo Nome'
   assert loaded[0].text == 'versão nova'
 
 
 def test_updated_at_changes(tmp_recordings):
+  r = repo(tmp_recordings)
   lyric = Lyric('Música')
-  save_lyric(lyric)
+  r.save(lyric)
   before = lyric.updated_at.timestamp()
   lyric.text = 'outra versão'
-  save_lyric(lyric)
+  r.save(lyric)
 
-  loaded = get_lyrics()
+  loaded = r.get_all()
   assert loaded[0].updated_at.timestamp() >= before
 
 
 def test_delete_removes_file(tmp_recordings):
+  r = repo(tmp_recordings)
   lyric = Lyric('Música')
-  save_lyric(lyric)
-  assert len(get_lyrics()) == 1
+  r.save(lyric)
+  assert len(r.get_all()) == 1
 
-  delete_lyric(lyric.id)
+  r.delete(lyric.id)
 
-  assert len(get_lyrics()) == 0
+  assert len(r.get_all()) == 0
 
 
 def test_get_lyrics_skips_incomplete_json(tmp_recordings):
+  r = repo(tmp_recordings)
   lyric = Lyric('Música')
-  save_lyric(lyric)
-  from app.lyrics import store
-  store.LYRICS_DIR.mkdir(parents=True, exist_ok=True)
-  (store.LYRICS_DIR / 'corrupt.json').write_text(json.dumps({'name': 'incomplete'}))
+  r.save(lyric)
+  r.root.mkdir(parents=True, exist_ok=True)
+  (r.root / 'corrupt.json').write_text(json.dumps({'name': 'incomplete'}))
 
-  loaded = get_lyrics()
+  loaded = r.get_all()
   assert len(loaded) == 1
   assert loaded[0].id == lyric.id
 
 
 def test_get_lyrics_skips_broken_json(tmp_recordings):
-  from app.lyrics import store
-  store.LYRICS_DIR.mkdir(parents=True, exist_ok=True)
-  (store.LYRICS_DIR / 'broken.json').write_text('{not json')
+  r = repo(tmp_recordings)
+  r.root.mkdir(parents=True, exist_ok=True)
+  (r.root / 'broken.json').write_text('{not json')
 
-  assert get_lyrics() == []
+  assert r.get_all() == []

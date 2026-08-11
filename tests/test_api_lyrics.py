@@ -89,29 +89,29 @@ def test_delete_lyric_404(client):
 
 # --- Persistence ---
 
-def test_lyrics_survive_restart(client):
+def test_lyrics_survive_restart(client, tmp_recordings):
   import main
-  from app.lyrics.store import get_lyrics
+  from app.repositories.lyric_repo import LyricRepository
+  from app.services.lyric_service import LyricService
 
   created = create_lyric(client, 'Persistente', 'letra')
 
-  main.LYRICS = []
-  main.LYRICS = get_lyrics()
+  main.app.state.lyric_service = LyricService(LyricRepository(tmp_recordings.parent / 'lyrics'))
 
   lyrics = client.get('/api/v1/lyrics').json()
   assert [l['id'] for l in lyrics] == [created['id']]
   assert lyrics[0]['name'] == 'Persistente'
 
 
-def test_updated_lyric_survives_restart(client):
+def test_updated_lyric_survives_restart(client, tmp_recordings):
   import main
-  from app.lyrics.store import get_lyrics
+  from app.repositories.lyric_repo import LyricRepository
+  from app.services.lyric_service import LyricService
 
   created = create_lyric(client, 'Antigo', 'velha letra')
   client.post(f"/api/v1/lyrics/{created['id']}", json={'name': 'Novo Nome', 'text': 'nova letra'})
 
-  main.LYRICS = []
-  main.LYRICS = get_lyrics()
+  main.app.state.lyric_service = LyricService(LyricRepository(tmp_recordings.parent / 'lyrics'))
 
   lyric = client.get(f"/api/v1/lyrics/{created['id']}").json()
   assert lyric['name'] == 'Novo Nome'

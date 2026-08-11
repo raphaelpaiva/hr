@@ -66,11 +66,11 @@ def test_quick_start_then_stop_flows_through_session(client):
 
 
 def test_quick_start_persists_anonymous_session(client, tmp_recordings):
-  from app.sessions.store import get_sessions
+  from app.repositories.session_repo import SessionRepository
   data = client.post('/api/v1/quick/start', json={'devices': [DEVICE]}).json()
   client.post(f"/api/v1/session/{data['session_id']}/take/stop")
 
-  loaded = get_sessions()
+  loaded = SessionRepository(tmp_recordings).get_all()
   assert len(loaded) == 1
   assert loaded[0].id == data['session_id']
   assert loaded[0].takes[0].recordings[0].state.value == 'stopped'
@@ -142,11 +142,11 @@ def test_session_start_then_stop_flows_through_session(client):
 
 
 def test_session_start_persists_named_session(client, tmp_recordings):
-  from app.sessions.store import get_sessions
+  from app.repositories.session_repo import SessionRepository
   data = client.post('/api/v1/session/start', json={'name': 'Persistida', 'devices': [DEVICE]}).json()
   client.post(f"/api/v1/session/{data['session_id']}/take/stop")
 
-  loaded = get_sessions()
+  loaded = SessionRepository(tmp_recordings).get_all()
   assert len(loaded) == 1
   assert loaded[0].id == data['session_id']
   assert loaded[0].name == 'Persistida'

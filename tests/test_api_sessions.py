@@ -59,16 +59,17 @@ def test_delete_session(client):
   assert client.get('/api/v1/session').json() == []
 
 
-def test_sessions_survive_restart(client):
+def test_sessions_survive_restart(client, tmp_recordings):
   import main
-  from app.sessions.store import get_sessions
+  from app.repositories.session_repo import SessionRepository
+  from app.services.session_service import SessionService
+  from app.sound_system.sound_system import DummyAlsaSoundSystem
 
   sid = create_session(client)
   take = client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]}).json()
   client.post(f'/api/v1/session/{sid}/take/stop')
 
-  main.SESSIONS = []
-  main.SESSIONS = get_sessions()
+  main.app.state.session_service = SessionService(SessionRepository(tmp_recordings), DummyAlsaSoundSystem())
 
   sessions = client.get('/api/v1/session').json()
   assert [s['id'] for s in sessions] == [sid]
@@ -217,17 +218,18 @@ def test_rename_take_404_unknown(client):
   assert client.post(f'/api/v1/session/{sid}/take/unknown/rename', json={'name': 'X'}).status_code == 404
 
 
-def test_rename_take_survives_restart(client):
+def test_rename_take_survives_restart(client, tmp_recordings):
   import main
-  from app.sessions.store import get_sessions
+  from app.repositories.session_repo import SessionRepository
+  from app.services.session_service import SessionService
+  from app.sound_system.sound_system import DummyAlsaSoundSystem
 
   sid = create_session(client)
   take = client.post(f'/api/v1/session/{sid}/take/start', json={'devices': [DEVICE]}).json()
   client.post(f'/api/v1/session/{sid}/take/stop')
   client.post(f'/api/v1/session/{sid}/take/{take["id"]}/rename', json={'name': 'Versão Final'})
 
-  main.SESSIONS = []
-  main.SESSIONS = get_sessions()
+  main.app.state.session_service = SessionService(SessionRepository(tmp_recordings), DummyAlsaSoundSystem())
 
   sessions = client.get('/api/v1/session').json()
   assert sessions[0]['takes'][0]['name'] == 'Versão Final'

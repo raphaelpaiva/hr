@@ -78,9 +78,9 @@ def test_device_alias_requires_device_name(client):
 
 
 def test_aliases_persist_to_disk(client, tmp_recordings):
-  from app.device_aliases import load_aliases
+  from app.repositories.alias_repo import AliasRepository
   client.post('/api/v1/device-aliases', json={'device_name': DEVICE, 'alias': 'Macóli'})
-  assert load_aliases() == {DEVICE: 'Macóli'}
+  assert AliasRepository(tmp_recordings.parent / 'device_aliases.json').load() == {DEVICE: 'Macóli'}
 
 
 # --- ZIP naming ---

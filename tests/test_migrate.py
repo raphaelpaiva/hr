@@ -53,10 +53,6 @@ def test_migrate_moves_session_recordings_into_tree(tmp_path, monkeypatch):
   migrate.migrate()
 
   assert (tmp_path / 'sessions' / sid / 'takes' / tid / f'{rid}.wav').exists()
-  rec_json = json.loads((tmp_path / 'sessions' / sid / 'takes' / tid / f'{rid}.json').read_text())
-  assert rec_json['state'] == 'stopped'
-  assert rec_json['session_id'] == sid
-  assert rec_json['take_id'] == tid
 
   session_data = json.loads((sdir / 'session.json').read_text())
   embedded = session_data['takes'][0]['recordings'][0]
@@ -87,7 +83,6 @@ def test_migrate_wraps_standalone_recordings_as_sessions(tmp_path, monkeypatch):
 
   take_dir = next((sdir / 'takes').iterdir())
   assert (take_dir / f'{rid}.wav').exists()
-  assert (take_dir / f'{rid}.json').exists()
   assert not (tmp_path / 'recordings').exists()
 
 

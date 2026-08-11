@@ -26,7 +26,7 @@ def test_take_dict(tmp_recordings):
   rec.mark_started()
   take.add_recording(rec)
 
-  data = take.__dict__()
+  data = take.to_dict()
   assert data['name'] == 'Take 1'
   assert data['index'] == 1
   assert data['id'] == take.id
@@ -59,13 +59,13 @@ def test_start_take_custom_name():
 
 
 def test_session_dict_serializes_takes_as_dicts(tmp_recordings):
-  """Regression: Session.__dict__ must call take.__dict__() (parenthesized)."""
+  """Regression: Session.to_dict must call take.to_dict() (parenthesized)."""
   session = Session('Ensaio')
   take = session.start_take()
   rec = Recording('null', session_id=session.id, take_id=take.id)
   take.add_recording(rec)
 
-  data = session.__dict__()
+  data = session.to_dict()
   assert data['name'] == 'Ensaio'
   assert isinstance(data['takes'], list)
   assert isinstance(data['takes'][0], dict)
