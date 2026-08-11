@@ -12,6 +12,10 @@ class NamePayload(BaseModel):
   name: Optional[str] = None
 
 
+class LyricPayload(NamePayload):
+  text: Optional[str] = None
+
+
 class DevicesPayload(BaseModel):
   devices: Optional[List[str]] = None
 

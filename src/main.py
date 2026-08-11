@@ -1,48 +1,58 @@
-import datetime
 import dataclasses
 import io
 import re
 import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 from time import sleep
-from fastapi import FastAPI, APIRouter, BackgroundTasks, HTTPException
+from fastapi import FastAPI, APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from subprocess import run
 
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
-
-from app.sound_system.recording import Recording, RecordState
 
 from app.system import get_header_info
 
 from app.build_info import get_build_info
 
-from app.config import BASE_PATH
-from app.device_aliases import load_aliases, save_aliases, make_wav_name
+from app.config import BASE_PATH, LYRICS_BASE_PATH
+from app.device_aliases import make_wav_name
+from app.exceptions import NotFound, ValidationError
+from app.repositories.alias_repo import AliasRepository
+from app.repositories.lyric_repo import LyricRepository
+from app.repositories.session_repo import SessionRepository
+from app.schemas import AliasPayload, DeleteSessionPayload, DevicesPayload, LyricPayload, NamePayload, StartSessionPayload
+from app.services.alias_service import AliasService
+from app.services.lyric_service import LyricService
+from app.services.session_service import SessionService
 from app.sound_system.sound_system import AlsaSoundSystem, SoundSystem, DummyAlsaSoundSystem, SoundDevice
-from app.sessions.session import Session, Take
-from app.sessions.store import delete_session as delete_session_store
-from app.sessions.store import get_sessions, save_session
-from app.lyrics.lyric import Lyric
-from app.lyrics.store import delete_lyric as delete_lyric_store
-from app.lyrics.store import get_lyrics, save_lyric
+
+SOUND_SYSTEM: SoundSystem = AlsaSoundSystem()
+# SOUND_SYSTEM: SoundSystem = DummyAlsaSoundSystem()
+
+
+def build_services(sound_system: SoundSystem) -> dict:
+  return {
+    'session_service': SessionService(SessionRepository(Path(BASE_PATH)), sound_system),
+    'lyric_service': LyricService(LyricRepository(Path(LYRICS_BASE_PATH))),
+    'alias_service': AliasService(AliasRepository(Path(BASE_PATH) / 'device_aliases.json')),
+  }
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  global SESSIONS, DEVICE_ALIASES, LYRICS
-  SESSIONS = get_sessions()
-  DEVICE_ALIASES = load_aliases()
-  LYRICS = get_lyrics()
+  services = build_services(SOUND_SYSTEM)
+  app.state.session_service = services['session_service']
+  app.state.lyric_service = services['lyric_service']
+  app.state.alias_service = services['alias_service']
   yield
+
 
 app = FastAPI(lifespan=lifespan)
 v1_router = APIRouter(prefix="/api/v1", tags=["v1"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-from app.exceptions import NotFound, ValidationError
 
 @app.exception_handler(NotFound)
 async def not_found_handler(request, exc: NotFound):
@@ -52,157 +62,96 @@ async def not_found_handler(request, exc: NotFound):
 async def validation_error_handler(request, exc: ValidationError):
   return JSONResponse(status_code=400, content={"detail": str(exc)})
 
-SOUND_SYSTEM: SoundSystem = AlsaSoundSystem()
-# SOUND_SYSTEM: SoundSystem = DummyAlsaSoundSystem()
-SESSIONS: List[Session] = []
-DEVICE_ALIASES: Dict[str, str] = {}
-LYRICS: List[Lyric] = []
 
-def find_session_by_id(session_id: str) -> Optional[Session]:
-  return next((s for s in SESSIONS if s.id == session_id), None)
+def get_session_service(request: Request) -> SessionService:
+  return request.app.state.session_service
 
-def get_session_or_404(session_id: str) -> Session:
-  session = find_session_by_id(session_id)
-  if not session:
-    raise HTTPException(status_code=404, detail="Session not found")
-  return session
+def get_lyric_service(request: Request) -> LyricService:
+  return request.app.state.lyric_service
 
-def get_take_or_404(session: Session, take_id: str) -> Take:
-  take = next((t for t in session.takes if t.id == take_id), None)
-  if not take:
-    raise HTTPException(status_code=404, detail="Take not found")
-  return take
+def get_alias_service(request: Request) -> AliasService:
+  return request.app.state.alias_service
 
-def get_active_take(session: Session) -> Optional[Take]:
-  for take in reversed(session.takes):
-    if any(rec.state == RecordState.RECORDING for rec in take.recordings):
-      return take
-  return None
 
-def get_lyric_or_404(lyric_id: str) -> Lyric:
-  lyric = next((l for l in LYRICS if l.id == lyric_id), None)
-  if not lyric:
-    raise HTTPException(status_code=404, detail="Lyric not found")
-  return lyric
+def page(filename: str) -> HTMLResponse:
+  return HTMLResponse(content=(Path('static') / filename).read_text(encoding='utf-8'))
+
 
 @app.get("/")
 async def root():
-  with open("static/index.html", "r") as f:
-    index_html = f.read()
-  
-  return HTMLResponse(content=index_html, status_code=200)
+  return page('index.html')
 
 @app.get("/sessions")
 async def sessions(id: Optional[str] = None):
   if id:
-    with open("static/session_detail.html", "r") as f:
-      index_html = f.read()
-    
-    return HTMLResponse(content=index_html, status_code=200)
-  
-  with open("static/session.html", "r") as f:
-    index_html = f.read()
-  
-  return HTMLResponse(content=index_html, status_code=200)
+    return page('session_detail.html')
+  return page('session.html')
 
 @app.get("/settings")
 async def settings():
-  with open("static/settings.html", "r") as f:
-    settings_html = f.read()
-  
-  return HTMLResponse(content=settings_html, status_code=200)
+  return page('settings.html')
 
 @app.get("/lyrics")
 async def lyrics_page():
-  with open("static/lyrics.html", "r") as f:
-    lyrics_html = f.read()
-  
-  return HTMLResponse(content=lyrics_html, status_code=200)
+  return page('lyrics.html')
 
 @app.get("/lyrics/read")
 async def lyrics_reader_page():
-  with open("static/lyrics_reader.html", "r") as f:
-    reader_html = f.read()
-  
-  return HTMLResponse(content=reader_html, status_code=200)
+  return page('lyrics_reader.html')
+
 
 @v1_router.get("/session")
-async def list_sessions():
-  return [session.to_dict() for session in SESSIONS]
+async def list_sessions(svc: SessionService = Depends(get_session_service)):
+  return [session.to_dict() for session in svc.list()]
 
 @v1_router.get("/session/{session_id}")
-async def get_session(session_id: str):
-  session = get_session_or_404(session_id)
-  return session.to_dict()
+async def get_session(session_id: str, svc: SessionService = Depends(get_session_service)):
+  return svc.get(session_id).to_dict()
 
-def start_recording_take(session: Session, devices: List[str]) -> Take:
-  take = session.start_take(f"Take {len(session.takes) + 1}")
-  all_recordings = []
-  for device_name in devices:
-    channels = SOUND_SYSTEM.device_channels(device_name)
-    for channel in range(channels):
-      rec = Recording(device_name, session_id=session.id, take_id=take.id, channel=channel)
-      take.add_recording(rec)
-      all_recordings.append(rec)
-  SOUND_SYSTEM.start_recording(all_recordings)
-  session.devices = devices
-  save_session(session)
-  return take
-
-@v1_router.post("/session/{session_id}/take/start")
-async def start_take(session_id: str, payload: Optional[dict] = None):
-  session = get_session_or_404(session_id)
-  devices = (payload or {}).get('devices') or session.devices
-  if not devices:
-    raise HTTPException(status_code=400, detail="No devices selected")
-  take = start_recording_take(session, devices)
-  return take.to_dict()
+@v1_router.post("/session")
+async def create_session(payload: NamePayload, svc: SessionService = Depends(get_session_service)):
+  return svc.create(payload.name).to_dict()
 
 @v1_router.post("/session/start")
-async def start_session(payload: Optional[dict] = None):
-  devices = (payload or {}).get('devices')
-  if not devices:
-    raise HTTPException(status_code=400, detail="No devices selected")
-  name = ((payload or {}).get('name') or '').strip()
-  if not name:
-    name = f"Sessão de {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}"
-  session = Session(name)
-  SESSIONS.append(session)
-  take = start_recording_take(session, devices)
+async def start_session(payload: StartSessionPayload, svc: SessionService = Depends(get_session_service)):
+  session, take = svc.start_new_session(payload.name, payload.devices)
   return {"session_id": session.id, "take": take.to_dict()}
 
 @v1_router.post("/quick/start")
-async def quick_start(payload: Optional[dict] = None):
-  devices = (payload or {}).get('devices')
-  if not devices:
-    raise HTTPException(status_code=400, detail="No devices selected")
-  name = f"Anônima {datetime.datetime.now().strftime('%d/%m %H:%M')}"
-  session = Session(name)
-  SESSIONS.append(session)
-  take = start_recording_take(session, devices)
+async def quick_start(payload: DevicesPayload, svc: SessionService = Depends(get_session_service)):
+  session, take = svc.quick_start(payload.devices)
   return {"session_id": session.id, "take": take.to_dict()}
 
+@v1_router.post("/session/{session_id}/take/start")
+async def start_take(session_id: str, payload: Optional[DevicesPayload] = None, svc: SessionService = Depends(get_session_service)):
+  devices = payload.devices if payload else None
+  return svc.start_take(session_id, devices).to_dict()
+
 @v1_router.post("/session/{session_id}/take/stop")
-async def stop_take(session_id: str):
-  session = get_session_or_404(session_id)
-  take = get_active_take(session)
-  if not take:
-    raise HTTPException(status_code=400, detail="No active take")
-  for rec in take.recordings:
-    if rec.state == RecordState.RECORDING:
-      SOUND_SYSTEM.stop_recording(rec)
-  save_session(session)
-  return take.to_dict()
+async def stop_take(session_id: str, svc: SessionService = Depends(get_session_service)):
+  return svc.stop_take(session_id).to_dict()
+
+@v1_router.post("/session/{session_id}/rename")
+async def rename_session(session_id: str, payload: NamePayload, svc: SessionService = Depends(get_session_service)):
+  return svc.rename(session_id, payload.name).to_dict()
+
+@v1_router.post("/session/{session_id}/take/{take_id}/rename")
+async def rename_take(session_id: str, take_id: str, payload: NamePayload, svc: SessionService = Depends(get_session_service)):
+  return svc.rename_take(session_id, take_id, payload.name).to_dict()
+
+@v1_router.delete("/session")
+async def delete_session(payload: DeleteSessionPayload, svc: SessionService = Depends(get_session_service)):
+  svc.delete(payload.id)
+  return {"status": "deleted", "id": payload.id}
 
 @v1_router.get("/session/{session_id}/take/{take_id}/zip")
-async def take_zip(session_id: str, take_id: str):
-  session = get_session_or_404(session_id)
-  take = get_take_or_404(session, take_id)
+async def take_zip(session_id: str, take_id: str, svc: SessionService = Depends(get_session_service), alias_svc: AliasService = Depends(get_alias_service)):
+  take = svc.get_take(session_id, take_id)
   buffer = io.BytesIO()
   with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
     for rec in take.recordings:
       if rec.output_path.exists():
-        s = make_wav_name(rec.device_name, rec.id, DEVICE_ALIASES, channel=rec.channel)
+        s = make_wav_name(rec.device_name, rec.id, alias_svc.get_all(), channel=rec.channel)
         zf.write(rec.output_path, s)
   buffer.seek(0)
   safe_take_name = re.sub(r'[^A-Za-z0-9_.-]+', '_', take.name).strip('_') or f"take_{take.index:03d}"
@@ -213,136 +162,65 @@ async def take_zip(session_id: str, take_id: str):
     headers={"Content-Disposition": f"attachment; filename={filename}"},
   )
 
-@v1_router.post("/session/{session_id}/rename")
-async def rename_session(session_id: str, payload: dict):
-  session = get_session_or_404(session_id)
-  name = (payload.get('name') or '').strip()
-  if not name:
-    raise HTTPException(status_code=400, detail="Name is required")
-  session.name = name
-  save_session(session)
-  return session.to_dict()
-
-@v1_router.post("/session/{session_id}/take/{take_id}/rename")
-async def rename_take(session_id: str, take_id: str, payload: dict):
-  session = get_session_or_404(session_id)
-  take = get_take_or_404(session, take_id)
-  name = (payload.get('name') or '').strip()
-  if not name:
-    raise HTTPException(status_code=400, detail="Name is required")
-  take.name = name
-  save_session(session)
-  return take.to_dict()
-
-@v1_router.post("/session")
-async def create_session(payload: dict):
-  session = Session(payload['name'])
-  SESSIONS.append(session)
-  save_session(session)
-  return session.to_dict()
-
-@v1_router.delete("/session")
-async def delete_session(payload: dict):
-  session_id = payload['id']
-  global SESSIONS
-  session = find_session_by_id(session_id)
-  SESSIONS = [s for s in SESSIONS if s.id != session_id]
-  if session:
-    delete_session_store(session)
-  return {"status": "deleted", "id": session_id}
-
 @v1_router.get("/devices")
-async def devices():
+async def devices(alias_svc: AliasService = Depends(get_alias_service)):
   devices: List[SoundDevice] = SOUND_SYSTEM.list_devices()
   result = []
   for device in devices:
     item = dataclasses.asdict(device)
-    item['alias'] = DEVICE_ALIASES.get(device.name, '')
+    item['alias'] = alias_svc.get_all().get(device.name, '')
     item['channels'] = SOUND_SYSTEM.device_channels(device.name)
     result.append(item)
   return {"devices": result}
 
 @v1_router.get("/device-aliases")
-async def get_device_aliases():
-  return {"aliases": DEVICE_ALIASES}
+async def get_device_aliases(alias_svc: AliasService = Depends(get_alias_service)):
+  return {"aliases": alias_svc.get_all()}
 
 @v1_router.post("/device-aliases")
-async def set_device_alias(payload: dict):
-  global DEVICE_ALIASES
-  device_name = (payload.get('device_name') or '').strip()
-  if not device_name:
-    raise HTTPException(status_code=400, detail="Device name is required")
-  alias = (payload.get('alias') or '').strip()
-  if alias:
-    DEVICE_ALIASES[device_name] = alias
-  else:
-    DEVICE_ALIASES.pop(device_name, None)
-  save_aliases(DEVICE_ALIASES)
-  return {"aliases": DEVICE_ALIASES}
+async def set_device_alias(payload: AliasPayload, alias_svc: AliasService = Depends(get_alias_service)):
+  return {"aliases": alias_svc.set(payload.device_name, payload.alias)}
 
 @v1_router.get("/history")
-async def history():
-  sessions_sorted = sorted(SESSIONS, key=lambda s: s.created_at, reverse=True)
-  return {"history": [session.to_dict() for session in sessions_sorted]}
+async def history(svc: SessionService = Depends(get_session_service)):
+  return {"history": [session.to_dict() for session in svc.history()]}
 
 @v1_router.get("/lyrics")
-async def list_lyrics():
-  lyrics_sorted = sorted(LYRICS, key=lambda l: l.name.lower())
-  return [lyric.to_dict() for lyric in lyrics_sorted]
+async def list_lyrics(lsvc: LyricService = Depends(get_lyric_service)):
+  return [lyric.to_dict() for lyric in lsvc.list()]
 
 @v1_router.post("/lyrics")
-async def create_lyric(payload: dict):
-  name = (payload.get('name') or '').strip()
-  if not name:
-    raise HTTPException(status_code=400, detail="Name is required")
-  lyric = Lyric(name, payload.get('text') or '')
-  LYRICS.append(lyric)
-  save_lyric(lyric)
-  return lyric.to_dict()
+async def create_lyric(payload: LyricPayload, lsvc: LyricService = Depends(get_lyric_service)):
+  return lsvc.create(payload.name, payload.text).to_dict()
 
 @v1_router.get("/lyrics/{lyric_id}")
-async def get_lyric(lyric_id: str):
-  return get_lyric_or_404(lyric_id).to_dict()
+async def get_lyric(lyric_id: str, lsvc: LyricService = Depends(get_lyric_service)):
+  return lsvc.get(lyric_id).to_dict()
 
 @v1_router.post("/lyrics/{lyric_id}")
-async def update_lyric(lyric_id: str, payload: dict):
-  lyric = get_lyric_or_404(lyric_id)
-  name = (payload.get('name') or '').strip()
-  if not name:
-    raise HTTPException(status_code=400, detail="Name is required")
-  lyric.name = name
-  lyric.text = payload.get('text') or ''
-  lyric.updated_at = datetime.datetime.now()
-  save_lyric(lyric)
-  return lyric.to_dict()
+async def update_lyric(lyric_id: str, payload: LyricPayload, lsvc: LyricService = Depends(get_lyric_service)):
+  return lsvc.update(lyric_id, payload.name, payload.text).to_dict()
 
 @v1_router.delete("/lyrics/{lyric_id}")
-async def delete_lyric(lyric_id: str):
-  global LYRICS
-  get_lyric_or_404(lyric_id)
-  LYRICS = [l for l in LYRICS if l.id != lyric_id]
-  delete_lyric_store(lyric_id)
+async def delete_lyric(lyric_id: str, lsvc: LyricService = Depends(get_lyric_service)):
+  lsvc.delete(lyric_id)
   return {"status": "deleted", "id": lyric_id}
 
 @v1_router.get("/result/{recording_id}", response_class=FileResponse)
-async def result(recording_id: str):
-  print(f"Serving file for id: {recording_id}")
-  filename = Path(BASE_PATH)
-
-  if filename.exists():
-    for wav in filename.glob(f"*/takes/*/{recording_id}.wav"):
-      return str(wav)
-
-  raise HTTPException(status_code=404, detail="File not found")
+async def result(recording_id: str, svc: SessionService = Depends(get_session_service)):
+  wav = svc.wav_path(recording_id)
+  if not wav:
+    raise HTTPException(status_code=404, detail="File not found")
+  return wav
 
 @v1_router.post("/shutdown")
 def shutdown_system(background_tasks: BackgroundTasks):
   def shutdown():
     sleep(1)
     run(['sudo', 'shutdown', 'now'])
-  
+
   background_tasks.add_task(shutdown)
-  
+
   return {"status": "shutting down"}
 
 @v1_router.get("/health")

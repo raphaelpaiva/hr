@@ -1,30 +1,8 @@
-import json
-import os
 import re
 import unicodedata
 
-from pathlib import Path
 from typing import Dict, Optional
 
-from .config import BASE_PATH
-
-ALIASES_FILE: Path = Path(BASE_PATH) / 'device_aliases.json'
-
-def load_aliases() -> Dict[str, str]:
-  if not ALIASES_FILE.exists():
-    return {}
-  try:
-    data = json.loads(ALIASES_FILE.read_text())
-    return {str(k): str(v) for k, v in data.items() if v}
-  except (json.JSONDecodeError, TypeError) as e:
-    print(f"Failed to load device aliases from {ALIASES_FILE}: {e}")
-    return {}
-
-def save_aliases(aliases: Dict[str, str]) -> None:
-  ALIASES_FILE.parent.mkdir(parents=True, exist_ok=True)
-  tmp_file = ALIASES_FILE.with_suffix('.json.tmp')
-  tmp_file.write_text(json.dumps(aliases, ensure_ascii=False))
-  os.replace(tmp_file, ALIASES_FILE)
 
 def normalize_alias(alias: str) -> Optional[str]:
   alias = alias.strip()
