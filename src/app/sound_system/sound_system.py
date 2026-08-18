@@ -1,15 +1,25 @@
 import re
 from dataclasses import dataclass
-from subprocess import PIPE, Popen, run
+from subprocess import PIPE, Popen, run, TimeoutExpired
 from typing import Dict, List, Optional, Tuple
 
 from .recording import Recording
 
 @dataclass
 class SoundDevice:
+  FULL_DUPLEX_KEYWORD = 'HX Stomp'
+
   name: str
   description: str
   details: List[str]
+
+  def needs_full_duplex_keepalive(self) -> bool:
+    return self.FULL_DUPLEX_KEYWORD.lower() in self.description.lower()
+
+  def plughw_name(self) -> str:
+    if self.name.startswith('hw:'):
+      return 'plughw:' + self.name[len('hw:'):]
+    return self.name
 
 class SoundSystem:
   def get_recordings(self) -> List[Recording]:
@@ -26,16 +36,20 @@ class SoundSystem:
 class AlsaSoundSystem(SoundSystem):
   CMD_LIST_DEVICES = ['arecord', '-L']
   MAX_CHANNELS = 32
+  APLAY_SAMPLE_FORMAT = 'S32_LE'
 
   def __init__(self) -> None:
     self.recordings: Dict[str, Recording] = {}
     self.processes: Dict[str, Popen] = {}
     self.group_recordings: Dict[str, List[Recording]] = {}
     self.channel_cache: Dict[str, int] = {}
+    self.keepalive_processes: Dict[str, Popen] = {}
+    self._devices: List[SoundDevice] = []
 
   def list_devices(self) -> List[SoundDevice]:
     output_str = run(self.CMD_LIST_DEVICES, capture_output=True).stdout.decode('utf-8')
-    return self.parse_arecord_L(output_str)
+    self._devices = self.parse_arecord_L(output_str)
+    return self._devices
 
   def _group_key(self, recording: Recording) -> str:
     return f"{recording.session_id}/{recording.take_id}/{recording.device_name}"
@@ -44,6 +58,28 @@ class AlsaSoundSystem(SoundSystem):
     if device_name.startswith('plughw:'):
       return 'hw:' + device_name[len('plughw:'):]
     return device_name
+
+  def _find_device(self, device_name: str) -> Optional[SoundDevice]:
+    for device in self._devices:
+      if device.name == device_name:
+        return device
+    return None
+
+  def _spawn_keepalive(self, device: SoundDevice, key: str) -> Popen:
+    cmd = ['aplay', '-D', device.plughw_name(), '-f', self.APLAY_SAMPLE_FORMAT, '/dev/zero']
+    process = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    self.keepalive_processes[key] = process
+    return process
+
+  def _stop_keepalive(self, key: str) -> None:
+    process = self.keepalive_processes.pop(key, None)
+    if process is None or process.poll() is not None:
+      return
+    process.terminate()
+    try:
+      process.wait(timeout=2)
+    except TimeoutExpired:
+      process.kill()
 
   def device_channels(self, device_name: str) -> int:
     if device_name in self.channel_cache:
@@ -108,12 +144,28 @@ class AlsaSoundSystem(SoundSystem):
         raise RuntimeError(f"Recordings for {key} must cover channels 0..{len(group) - 1}")
 
       device_name = group[0].device_name
+      if not self._devices:
+        self.list_devices()
+      device = self._find_device(device_name)
+      keepalive = None
+      if device is not None and device.needs_full_duplex_keepalive():
+        keepalive = self._spawn_keepalive(device, key)
+      if keepalive is not None and keepalive.poll() is not None:
+        self.keepalive_processes.pop(key, None)
+        for recording in group:
+          recording.mark_error(keepalive.returncode)
+        raise RuntimeError(
+          f"Failed to start full-duplex keepalive (aplay) for device {device.name} "
+          f"(exit code {keepalive.returncode})"
+        )
+
       cmd = self._record_cmd(device_name, len(group), [(r.id, r.output_path.as_posix()) for r in group])
       process = Popen(cmd, stdin=PIPE, stdout=PIPE)
       self.processes[key] = process
       self.group_recordings[key] = group
 
       if process.returncode is not None and process.returncode != 0:
+        self._stop_keepalive(key)
         for recording in group:
           recording.mark_error(process.returncode)
         raise RuntimeError(f"Failed to start recording for device {device_name}")
@@ -139,6 +191,7 @@ class AlsaSoundSystem(SoundSystem):
 
     self.processes.pop(key, None)
     self.group_recordings.pop(key, None)
+    self._stop_keepalive(key)
 
   def get_recordings(self) -> List[Recording]:
     return list(self.recordings.values())
@@ -202,8 +255,15 @@ front:CARD=CODEC,DEV=0
 dsnoop:CARD=CODEC,DEV=0
     USB Audio CODEC, USB Audio
     Direct sample snooping device
+hw:CARD=XL,DEV=0
+    Line6 HX Stomp, USB Audio
+    Direct hardware device without any conversions
+plughw:CARD=XL,DEV=0
+    Line6 HX Stomp, USB Audio
+    Hardware device with all software conversions
 '''
-    return self.parse_arecord_L(TEST_STRING)
+    self._devices = self.parse_arecord_L(TEST_STRING)
+    return self._devices
 
   def device_channels(self, device_name: str) -> int:
     if device_name == 'plughw:CARD=CODEC,DEV=0':

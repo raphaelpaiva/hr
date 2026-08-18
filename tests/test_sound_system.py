@@ -1,3 +1,4 @@
+import pytest
 from app.sound_system.recording import RecordState, Recording
 from app.sound_system.sound_system import AlsaSoundSystem, DummyAlsaSoundSystem, SoundDevice
 
@@ -7,7 +8,8 @@ def test_dummy_lists_devices():
   names = [d.name for d in devices]
   assert names == ['null', 'hw:CARD=CODEC,DEV=0', 'plughw:CARD=CODEC,DEV=0',
                    'default:CARD=CODEC', 'sysdefault:CARD=CODEC',
-                   'front:CARD=CODEC,DEV=0', 'dsnoop:CARD=CODEC,DEV=0']
+                   'front:CARD=CODEC,DEV=0', 'dsnoop:CARD=CODEC,DEV=0',
+                   'hw:CARD=XL,DEV=0', 'plughw:CARD=XL,DEV=0']
 
 
 def test_dummy_devices_have_descriptions():
@@ -22,6 +24,21 @@ def test_sound_device_fields():
   assert device.name == 'null'
   assert device.description == 'desc'
   assert device.details == ['detail one', 'detail two']
+
+
+def test_sound_device_needs_full_duplex_keepalive():
+  hx = SoundDevice('plughw:CARD=XL,DEV=0', 'Line6 HX Stomp, USB Audio', [])
+  assert hx.needs_full_duplex_keepalive() is True
+  hx_lower = SoundDevice('plughw:CARD=XL,DEV=0', 'line6 hx stomp, usb audio', [])
+  assert hx_lower.needs_full_duplex_keepalive() is True
+  codec = SoundDevice('plughw:CARD=CODEC,DEV=0', 'USB Audio CODEC, USB Audio', [])
+  assert codec.needs_full_duplex_keepalive() is False
+
+
+def test_sound_device_plughw_name():
+  assert SoundDevice('hw:CARD=XL,DEV=0', '', []).plughw_name() == 'plughw:CARD=XL,DEV=0'
+  assert SoundDevice('plughw:CARD=XL,DEV=0', '', []).plughw_name() == 'plughw:CARD=XL,DEV=0'
+  assert SoundDevice('default:CARD=XL', '', []).plughw_name() == 'default:CARD=XL'
 
 
 def test_parse_arecord_sample():
@@ -129,7 +146,118 @@ def test_dummy_stop_recording_idempotent_by_group(tmp_recordings):
   assert all(r.state == RecordState.STOPPED for r in recs)
 
 
-# --- construção do comando ffmpeg ---
+# --- lista interna de devices ---
+
+def test_list_devices_refreshes_internal_list():
+  ss = DummyAlsaSoundSystem()
+  assert ss._devices == []
+  expected = ss.list_devices()
+  assert ss._devices == expected
+
+def test_find_device_lookup_and_miss():
+  ss = DummyAlsaSoundSystem()
+  ss.list_devices()
+  device = ss._find_device('plughw:CARD=XL,DEV=0')
+  assert device is not None
+  assert device.needs_full_duplex_keepalive() is True
+  assert ss._find_device('nope') is None
+
+
+# --- keepalive full-duplex (AlsaSoundSystem real, Popen fake) ---
+
+class FakeProcess:
+  def __init__(self, cmd, **kwargs):
+    self.cmd = cmd
+    self.returncode = None
+    self.terminated = False
+    self.killed = False
+    spawns.append(self)
+
+  def poll(self):
+    return None
+
+  def communicate(self, data):
+    self.returncode = 0
+
+  def terminate(self):
+    self.terminated = True
+
+  def wait(self, timeout=None):
+    return self.returncode
+
+  def kill(self):
+    self.killed = True
+
+
+spawns = []
+
+
+@pytest.fixture(autouse=True)
+def clear_spawns():
+  spawns.clear()
+  yield
+
+
+def _hx_ss():
+  ss = AlsaSoundSystem()
+  ss._devices = [SoundDevice('plughw:CARD=XL,DEV=0', 'Line6 HX Stomp, USB Audio', [])]
+  return ss
+
+
+def test_alsa_start_recording_spawns_keepalive_before_ffmpeg(monkeypatch, tmp_recordings):
+  ss = _hx_ss()
+  monkeypatch.setattr('app.sound_system.sound_system.Popen', FakeProcess)
+  rec = Recording('plughw:CARD=XL,DEV=0', session_id=SID, take_id=TID, channel=0, base_dir=tmp_recordings)
+  ss.start_recording([rec])
+  assert [p.cmd for p in spawns] == [
+    ['aplay', '-D', 'plughw:CARD=XL,DEV=0', '-f', 'S32_LE', '/dev/zero'],
+    ['ffmpeg', '-y', '-f', 'alsa', '-channels', '1', '-i', 'plughw:CARD=XL,DEV=0', '-ac', '1', str(rec.output_path)],
+  ]
+  assert rec.state == RecordState.RECORDING
+
+
+def test_alsa_stop_recording_terminates_keepalive(monkeypatch, tmp_recordings):
+  ss = _hx_ss()
+  monkeypatch.setattr('app.sound_system.sound_system.Popen', FakeProcess)
+  rec = Recording('plughw:CARD=XL,DEV=0', session_id=SID, take_id=TID, channel=0, base_dir=tmp_recordings)
+  ss.start_recording([rec])
+  key = ss._group_key(rec)
+  keepalive = ss.keepalive_processes[key]
+  ss.stop_recording(rec)
+  assert keepalive.terminated is True
+  assert key not in ss.keepalive_processes
+  assert rec.state == RecordState.STOPPED
+
+
+def test_alsa_non_hx_device_spawns_no_keepalive(monkeypatch, tmp_recordings):
+  ss = AlsaSoundSystem()
+  ss._devices = [SoundDevice('plughw:CARD=CODEC,DEV=0', 'USB Audio CODEC, USB Audio', [])]
+  monkeypatch.setattr('app.sound_system.sound_system.Popen', FakeProcess)
+  rec = Recording('plughw:CARD=CODEC,DEV=0', session_id=SID, take_id=TID, channel=0, base_dir=tmp_recordings)
+  ss.start_recording([rec])
+  assert len(spawns) == 1
+  assert spawns[0].cmd[0] == 'ffmpeg'
+  assert ss.keepalive_processes == {}
+
+
+def test_alsa_keepalive_failure_aborts_recording(monkeypatch, tmp_recordings):
+  ss = _hx_ss()
+
+  class FailingAplay(FakeProcess):
+    def poll(self):
+      self.returncode = 1
+      return 1
+
+  monkeypatch.setattr('app.sound_system.sound_system.Popen', FailingAplay)
+
+  rec = Recording('plughw:CARD=XL,DEV=0', session_id=SID, take_id=TID, channel=0, base_dir=tmp_recordings)
+  with pytest.raises(RuntimeError, match='full-duplex keepalive'):
+    ss.start_recording([rec])
+  assert rec.state == RecordState.ERROR
+  assert rec.error_code == 1
+  assert spawns[0].cmd[0] == 'aplay'
+  assert len(spawns) == 1
+  assert ss.keepalive_processes == {}
 
 def test_record_cmd_mono_uses_ac1(tmp_recordings):
   ss = AlsaSoundSystem()
